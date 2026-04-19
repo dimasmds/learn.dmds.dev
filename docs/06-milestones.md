@@ -230,8 +230,8 @@ components/ui/ (base components)
 
 ## Open Questions
 
-1. **DI Container** — Awilix atau instances-container? Keputusan saat M1.
-2. **Email verification** — Perlu untuk MVP? Atau langsung bisa pakai setelah register?
+1. **DI Container** — Awilix. ✅ Decided.
+2. **Email verification** — Tidak untuk MVP. Langsung bisa pakai setelah register. ✅ Decided.
 3. **Content authoring tool** — Perlu UI untuk author konten, atau cukup edit TypeScript files?
 4. **Offline support** — PWA/service worker untuk akses offline? Nice-to-have untuk future.
 5. **Analytics** — Perlu tracking (Plausible, Umami) untuk MVP?

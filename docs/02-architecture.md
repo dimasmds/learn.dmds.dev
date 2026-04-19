@@ -17,7 +17,7 @@ Arsitektur mengikuti pola **Clean Architecture** dari proyek `dicoding-dev/mooc-
 | Database | PostgreSQL | 16 |
 | ORM/Query | node-postgres (pg) | - |
 | Migrasi | node-pg-migrate | - |
-| DI Container | TBD (Awilix atau instances-container) | - |
+|| DI Container | Awilix | - |
 | Framework CA | @kopiketuk/framework | - |
 | Auth | JWT (jose) + httpOnly cookie | - |
 | Testing | Vitest + React Testing Library | - |

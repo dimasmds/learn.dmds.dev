@@ -10,7 +10,10 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "test:db:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:db:down": "docker compose -f docker-compose.test.yml down -v",
+    "test:ci": "pnpm test:db:up && pnpm test:run && pnpm test:db:down"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

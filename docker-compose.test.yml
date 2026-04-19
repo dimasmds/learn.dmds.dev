@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: learn-dmds-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-learn_dmds}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-learn_dmds_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-learn_dmds_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-learn_dmds} -d ${POSTGRES_DB:-learn_dmds_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: learn-dmds-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-learn_dmds}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-learn_dmds_secret}
+      POSTGRES_DB: learn_dmds_test
+    ports:
+      - "${POSTGRES_PORT_TEST:-5433}:5432"
+    volumes:
+      - postgres_data_test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-learn_dmds} -d learn_dmds_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  postgres_data_test:

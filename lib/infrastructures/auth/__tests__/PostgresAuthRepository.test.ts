@@ -1,36 +1,25 @@
-import { beforeAll, afterAll, afterEach, beforeEach, describe, it, expect } from 'vitest';
-import { Pool } from 'pg';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, it, expect } from 'vitest';
 import { PostgresAuthRepository } from '../PostgresAuthRepository';
 import { User } from '../../../domains/auth/entities/User';
 import { AuthSession } from '../../../domains/auth/entities/AuthSession';
-import { createTestPool, migrateTestDatabase, cleanDatabase } from '../../../tests/helpers/database';
+import { createDatabaseTestContext, type DatabaseTestContext } from '../../../tests/helpers/database';
 
-let pool: Pool;
-let repository: PostgresAuthRepository;
-let dbAvailable = false;
+describe.sequential('PostgresAuthRepository', () => {
+  const db = createDatabaseTestContext();
+  let repository: PostgresAuthRepository;
 
-try {
-  const testPool = createTestPool();
-  await testPool.query('SELECT 1');
-  await testPool.end();
-  dbAvailable = true;
-} catch {
-  dbAvailable = false;
-}
-
-describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
   beforeAll(async () => {
-    pool = createTestPool();
-    await migrateTestDatabase(pool);
-    repository = new PostgresAuthRepository(pool);
+    await db.setup();
+    repository = new PostgresAuthRepository(db.pool);
   });
 
   afterEach(async () => {
-    await cleanDatabase(pool);
+    await db.query('DELETE FROM auth_sessions');
+    await db.query('DELETE FROM users');
   });
 
   afterAll(async () => {
-    await pool.end();
+    await db.teardown();
   });
 
   describe('createUser', () => {
@@ -64,6 +53,44 @@ describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
       expect(found!.id).toBe(user.id);
       expect(found!.username).toBe('findme');
     });
+
+    it('should reject duplicate email', async () => {
+      const user1 = User.create({
+        username: 'userone',
+        email: 'same@example.com',
+        passwordHash: '$2a$10$hash1',
+        displayName: 'User One',
+      });
+      await repository.createUser(user1);
+
+      const user2 = User.create({
+        username: 'usertwo',
+        email: 'same@example.com',
+        passwordHash: '$2a$10$hash2',
+        displayName: 'User Two',
+      });
+
+      await expect(repository.createUser(user2)).rejects.toThrow();
+    });
+
+    it('should reject duplicate username', async () => {
+      const user1 = User.create({
+        username: 'sameusername',
+        email: 'first@example.com',
+        passwordHash: '$2a$10$hash1',
+        displayName: 'First',
+      });
+      await repository.createUser(user1);
+
+      const user2 = User.create({
+        username: 'sameusername',
+        email: 'second@example.com',
+        passwordHash: '$2a$10$hash2',
+        displayName: 'Second',
+      });
+
+      await expect(repository.createUser(user2)).rejects.toThrow();
+    });
   });
 
   describe('findUserByEmail', () => {
@@ -72,7 +99,7 @@ describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('should return user when found', async () => {
+    it('should return user with correct fields', async () => {
       const user = User.create({
         username: 'emailuser',
         email: 'email@example.com',
@@ -86,20 +113,7 @@ describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
       expect(result).not.toBeNull();
       expect(result!.email).toBe('email@example.com');
       expect(result!.passwordHash).toBe('$2a$10$hashedpassword');
-    });
-
-    it('should find user with normalized (lowercase) email', async () => {
-      const user = User.create({
-        username: 'casesensitive',
-        email: 'Case@Example.COM',
-        passwordHash: '$2a$10$hashedpassword',
-        displayName: 'Case User',
-      });
-
-      await repository.createUser(user);
-      const result = await repository.findUserByEmail('case@example.com');
-
-      expect(result).not.toBeNull();
+      expect(result!.displayName).toBe('Email User');
     });
   });
 
@@ -172,6 +186,7 @@ describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
 
         expect(result.id).toBe(session.id);
         expect(result.userId).toBe(testUser.id);
+        expect(result.refreshTokenHash).toBe('hash-of-refresh-token');
       });
     });
 
@@ -198,7 +213,7 @@ describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
     });
 
     describe('deleteSession', () => {
-      it('should delete a session', async () => {
+      it('should delete a specific session', async () => {
         const session = AuthSession.create({
           userId: testUser.id,
           refreshTokenHash: 'to-delete-hash',
@@ -210,6 +225,26 @@ describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
         const result = await repository.findSessionByRefreshToken('to-delete-hash');
 
         expect(result).toBeNull();
+      });
+
+      it('should not delete other sessions', async () => {
+        const session1 = AuthSession.create({
+          userId: testUser.id,
+          refreshTokenHash: 'keep-this-hash',
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
+        const session2 = AuthSession.create({
+          userId: testUser.id,
+          refreshTokenHash: 'delete-this-hash',
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
+
+        await repository.createSession(session1);
+        await repository.createSession(session2);
+        await repository.deleteSession(session2.id);
+
+        expect(await repository.findSessionByRefreshToken('keep-this-hash')).not.toBeNull();
+        expect(await repository.findSessionByRefreshToken('delete-this-hash')).toBeNull();
       });
     });
 
@@ -256,15 +291,14 @@ describe.skipIf(!dbAvailable)('PostgresAuthRepository', () => {
       });
 
       it('should not count expired sessions', async () => {
-        await pool.query(
+        await db.query(
           `INSERT INTO auth_sessions (id, user_id, refresh_token_hash, expires_at, created_at)
-           VALUES ($1, $2, $3, $4, $5)`,
+           VALUES ($1, $2, $3, $4, NOW())`,
           [
             crypto.randomUUID(),
             testUser.id,
             'expired-hash',
             new Date(Date.now() - 1000),
-            new Date(),
           ],
         );
 

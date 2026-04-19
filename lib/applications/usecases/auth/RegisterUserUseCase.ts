@@ -33,6 +33,8 @@ export class RegisterUserUseCase extends ApplicationUseCase<
   ) {
     super(dependencies);
     this.authRepository = authRepository;
+    // Jangan log input — mengandung password plain text
+    this.setLoggingRestriction({ input: true });
   }
 
   protected async run(

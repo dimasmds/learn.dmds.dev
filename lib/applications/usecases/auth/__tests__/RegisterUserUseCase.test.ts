@@ -167,4 +167,12 @@ describe('RegisterUserUseCase', () => {
     expect(savedUser.passwordHash).not.toBe(validInput.password);
     expect(savedUser.passwordHash).toBe('hashed_SecurePass123');
   });
+
+  it('should NOT log input payload (contains plain text password)', async () => {
+    await useCase.execute(validInput);
+
+    const loggedEvent = (mockDependencies.logger.writeEvent as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(loggedEvent.payload.input).toBe('**restricted**');
+    expect(JSON.stringify(loggedEvent)).not.toContain('SecurePass123');
+  });
 });

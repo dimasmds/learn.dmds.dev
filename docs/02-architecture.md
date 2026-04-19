@@ -244,6 +244,303 @@ static async index(req: NextRequest) {
 }
 ```
 
+## State Management
+
+### Dual State Strategy
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    PRESENTATION                           │
+│                                                           │
+│  ┌─────────────────┐       ┌─────────────────────────┐   │
+│  │  React Query     │       │  Zustand Stores          │   │
+│  │  (Server State)  │       │  (Client State)          │   │
+│  │                  │       │                          │   │
+│  │  • Lesson data   │       │  • Auth state            │   │
+│  │  • Progress data  │       │  • Lesson player state   │   │
+│  │  • Badge data    │       │  • UI state              │   │
+│  │  • XP history    │       │  • Code editor state     │   │
+│  │                  │       │                          │   │
+│  │  Auto-cached     │       │  Manual, bisa di-unit    │   │
+│  │  Auto-refetched  │       │  test tanpa React        │   │
+│  └─────────────────┘       └─────────────────────────┘   │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+### React Query — Server State
+
+Untuk data yang berasal dari API (async, bisa stale, perlu cache):
+
+```typescript
+// hooks/useGetData.ts
+export function useGetData<T>(key: string[], fetcher: () => Promise<T>) {
+  return useQuery({ queryKey: key, queryFn: fetcher });
+}
+
+// hooks/useMutateData.ts
+export function useMutateData<T>(key: string[], mutator: (data: T) => Promise<void>) {
+  return useMutation({ mutationFn: mutator, onSuccess: () => invalidateQueries(key) });
+}
+```
+
+**Usage examples:**
+```typescript
+// features/dashboard/hooks.ts
+const { data: units } = useGetData(['units'], () => fetch('/api/units').then(r => r.json()));
+const { data: streak } = useGetData(['streak'], () => fetch('/api/gamification/streak').then(r => r.json()));
+```
+
+### Zustand — Client State
+
+Untuk state UI yang synchronous, perlu diakses cross-component, dan harus bisa di-unit test secara independen.
+
+#### Store Structure
+
+```
+stores/
+├── auth-store.ts          # Auth state (user, isAuthenticated)
+├── lesson-player-store.ts # Active lesson state (current step, answers, timer)
+├── ui-store.ts            # UI state (sidebar, modals, theme)
+└── code-editor-store.ts   # Code editor state (current code, language)
+```
+
+#### 1. Auth Store
+
+```typescript
+// stores/auth-store.ts
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+interface AuthActions {
+  setUser: (user: User | null) => void;
+  logout: () => void;
+}
+
+export const useAuthStore = create<AuthState & AuthActions>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
+
+  setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
+  logout: () => set({ user: null, isAuthenticated: false, isLoading: false }),
+}));
+```
+
+**Integrasi dengan React Query:** Auth store di-set dari React Query response. useAuth hook menggabungkan keduanya.
+
+#### 2. Lesson Player Store
+
+```typescript
+// stores/lesson-player-store.ts
+interface LessonPlayerState {
+  // Current lesson context
+  lessonId: string | null;
+  steps: Step[];
+  currentStepIndex: number;
+
+  // Per-step state
+  answers: Map<string, string>;        // stepId → user answer
+  attempts: Map<string, number>;       // stepId → attempt count
+  stepStatus: Map<string, StepStatus>; // stepId → CORRECT | WRONG | PENDING
+
+  // Timing
+  lessonStartTime: number | null;
+}
+
+interface LessonPlayerActions {
+  startLesson: (lessonId: string, steps: Step[]) => void;
+  goToStep: (index: number) => void;
+  submitAnswer: (stepId: string, answer: string) => void;
+  markCorrect: (stepId: string) => void;
+  markWrong: (stepId: string) => void;
+  resetLesson: () => void;
+}
+
+export const useLessonPlayerStore = create<LessonPlayerState & LessonPlayerActions>()(
+  (set, get) => ({
+    lessonId: null,
+    steps: [],
+    currentStepIndex: 0,
+    answers: new Map(),
+    attempts: new Map(),
+    stepStatus: new Map(),
+    lessonStartTime: null,
+
+    startLesson: (lessonId, steps) => set({
+      lessonId,
+      steps,
+      currentStepIndex: 0,
+      answers: new Map(),
+      attempts: new Map(),
+      stepStatus: new Map(),
+      lessonStartTime: Date.now(),
+    }),
+
+    goToStep: (index) => set({ currentStepIndex: index }),
+
+    submitAnswer: (stepId, answer) => {
+      const newAnswers = new Map(get().answers);
+      const newAttempts = new Map(get().attempts);
+      newAnswers.set(stepId, answer);
+      newAttempts.set(stepId, (newAttempts.get(stepId) || 0) + 1);
+      set({ answers: newAnswers, attempts: newAttempts });
+    },
+
+    markCorrect: (stepId) => {
+      const newStatus = new Map(get().stepStatus);
+      newStatus.set(stepId, 'CORRECT');
+      set({ stepStatus: newStatus });
+    },
+
+    markWrong: (stepId) => {
+      const newStatus = new Map(get().stepStatus);
+      newStatus.set(stepId, 'WRONG');
+      set({ stepStatus: newStatus });
+    },
+
+    resetLesson: () => set({
+      lessonId: null, steps: [], currentStepIndex: 0,
+      answers: new Map(), attempts: new Map(), stepStatus: new Map(),
+      lessonStartTime: null,
+    }),
+  })
+);
+```
+
+**Kenapa bukan React state?** Karena lesson player state perlu diakses dari banyak component bersarang (StepRenderer, ProgressBar, CodeEditor, FeedbackPanel) tanpa prop drilling. Dan store ini bisa di-unit test tanpa render React.
+
+#### 3. UI Store
+
+```typescript
+// stores/ui-store.ts
+interface UIState {
+  sidebarOpen: boolean;
+  activeModal: string | null;
+  celebrationActive: boolean;
+}
+
+interface UIActions {
+  toggleSidebar: () => void;
+  openModal: (modalId: string) => void;
+  closeModal: () => void;
+  triggerCelebration: () => void;
+  stopCelebration: () => void;
+}
+
+export const useUIStore = create<UIState & UIActions>()((set) => ({
+  sidebarOpen: false,
+  activeModal: null,
+  celebrationActive: false,
+
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  openModal: (modalId) => set({ activeModal: modalId }),
+  closeModal: () => set({ activeModal: null }),
+  triggerCelebration: () => set({ celebrationActive: true }),
+  stopCelebration: () => set({ celebrationActive: false }),
+}));
+```
+
+#### 4. Code Editor Store
+
+```typescript
+// stores/code-editor-store.ts
+interface CodeEditorState {
+  code: string;
+  language: 'html' | 'css' | 'javascript';
+  readOnly: boolean;
+  highlightedLines: number[];
+}
+
+interface CodeEditorActions {
+  setCode: (code: string) => void;
+  setLanguage: (lang: 'html' | 'css' | 'javascript') => void;
+  setReadOnly: (readOnly: boolean) => void;
+  setHighlightedLines: (lines: number[]) => void;
+}
+
+export const useCodeEditorStore = create<CodeEditorState & CodeEditorActions>()((set) => ({
+  code: '',
+  language: 'html',
+  readOnly: false,
+  highlightedLines: [],
+
+  setCode: (code) => set({ code }),
+  setLanguage: (language) => set({ language }),
+  setReadOnly: (readOnly) => set({ readOnly }),
+  setHighlightedLines: (highlightedLines) => set({ highlightedLines }),
+}));
+```
+
+### Testing Zustand Stores
+
+Setiap store bisa di-unit test tanpa React component:
+
+```typescript
+// stores/__tests__/lesson-player-store.test.ts
+import { useLessonPlayerStore } from '../lesson-player-store';
+import { mockSteps } from '@/lib/tests/helpers/factories';
+
+describe('LessonPlayerStore', () => {
+  beforeEach(() => {
+    // Reset store state before each test
+    useLessonPlayerStore.getState().resetLesson();
+  });
+
+  it('should start a lesson correctly', () => {
+    const { startLesson } = useLessonPlayerStore.getState();
+    startLesson('lesson-1', mockSteps);
+
+    const state = useLessonPlayerStore.getState();
+    expect(state.lessonId).toBe('lesson-1');
+    expect(state.currentStepIndex).toBe(0);
+    expect(state.lessonStartTime).toBeDefined();
+  });
+
+  it('should track answer submissions and attempts', () => {
+    const store = useLessonPlayerStore.getState();
+    store.startLesson('lesson-1', mockSteps);
+    store.submitAnswer('step-1', '<h1>');
+
+    const state = useLessonPlayerStore.getState();
+    expect(state.answers.get('step-1')).toBe('<h1>');
+    expect(state.attempts.get('step-1')).toBe(1);
+  });
+
+  it('should advance to next step on correct answer', () => {
+    const store = useLessonPlayerStore.getState();
+    store.startLesson('lesson-1', mockSteps);
+    store.goToStep(1);
+
+    expect(useLessonPlayerStore.getState().currentStepIndex).toBe(1);
+  });
+});
+```
+
+### Data Flow Summary
+
+```
+User Action (click, type)
+       ↓
+Zustand Store (update client state instantly)
+       ↓
+React Query Mutation (sync to server)
+       ↓
+On Success → invalidate related queries (refetch stale data)
+       ↓
+React Query Cache updated → UI re-renders with fresh data
+```
+
+Example: User completes a step
+1. User submits answer → `lessonPlayerStore.submitAnswer()`
+2. Validator checks → `lessonPlayerStore.markCorrect()`
+3. API call → `useMutateData` POST /api/progress/step
+4. On success → invalidate `['progress']` and `['stats']` queries
+5. Dashboard XP counter auto-updates from refetched data
+
 ## Environment
 
 ### Local Development

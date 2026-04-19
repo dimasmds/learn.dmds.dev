@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createContainer, InjectionMode, asFunction, asValue, type AwilixContainer } from 'awilix';
 
-import { JwtService } from '@lib/infrastructures/auth/JwtService';
-import { BcryptPasswordService } from '@lib/infrastructures/auth/BcryptPasswordService';
-import { PostgresAuthRepository } from '@lib/infrastructures/auth/PostgresAuthRepository';
-import { RegisterUserUseCase } from '@lib/applications/usecases/auth/RegisterUserUseCase';
-import { LoginUserUseCase } from '@lib/applications/usecases/auth/LoginUserUseCase';
-import { LogoutUserUseCase } from '@lib/applications/usecases/auth/LogoutUserUseCase';
-import { RefreshTokenUseCase } from '@lib/applications/usecases/auth/RefreshTokenUseCase';
-import { GetCurrentUserUseCase } from '@lib/applications/usecases/auth/GetCurrentUserUseCase';
-import { serverlessDeps } from '@lib/infrastructures/serverless-deps';
+import { JwtService } from '@/lib/infrastructures/auth/JwtService';
+import { BcryptPasswordService } from '@/lib/infrastructures/auth/BcryptPasswordService';
+import { PostgresAuthRepository } from '@/lib/infrastructures/auth/PostgresAuthRepository';
+import { RegisterUserUseCase } from '@/lib/applications/usecases/auth/RegisterUserUseCase';
+import { LoginUserUseCase } from '@/lib/applications/usecases/auth/LoginUserUseCase';
+import { LogoutUserUseCase } from '@/lib/applications/usecases/auth/LogoutUserUseCase';
+import { RefreshTokenUseCase } from '@/lib/applications/usecases/auth/RefreshTokenUseCase';
+import { GetCurrentUserUseCase } from '@/lib/applications/usecases/auth/GetCurrentUserUseCase';
+import { serverlessDeps } from '@/lib/infrastructures/serverless-deps';
 import { AuthController } from '../AuthController';
-import { createDatabaseTestContext } from '@lib/tests/helpers/database';
+import { createDatabaseTestContext } from '@/lib/tests/helpers/database';
 
 describe.sequential('AuthController', () => {
   const db = createDatabaseTestContext();

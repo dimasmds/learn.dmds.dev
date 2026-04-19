@@ -1,51 +1,65 @@
-import {
-  createContainer,
-  asClass,
-  asFunction,
-  asValue,
-  InjectionMode,
-  AwilixContainer,
-} from 'awilix';
+import type { ParameterOption } from 'instances-container';
+import { createContainer } from 'instances-container';
+import { Pool } from 'pg';
 
-import {
-  ApplicationEventImpl,
-  WinstonLoggerImpl,
-} from '@kopiketuk/framework';
+import { RegisterUserUseCase } from '../applications/usecases/auth/RegisterUserUseCase';
+import { LoginUserUseCase } from '../applications/usecases/auth/LoginUserUseCase';
+import { LogoutUserUseCase } from '../applications/usecases/auth/LogoutUserUseCase';
+import { RefreshTokenUseCase } from '../applications/usecases/auth/RefreshTokenUseCase';
+import { GetCurrentUserUseCase } from '../applications/usecases/auth/GetCurrentUserUseCase';
 
-import pool from './database/pool.js';
+import { JwtService } from './auth/JwtService';
+import { BcryptPasswordService } from './auth/BcryptPasswordService';
+import { PostgresAuthRepository } from './auth/PostgresAuthRepository';
+import { serverlessDeps } from './serverless-deps';
 
-export interface Cradle {
-  // Database
-  pool: typeof pool;
+const container = createContainer();
 
-  // Framework infrastructures
-  applicationEvent: ApplicationEventImpl;
-  logger: WinstonLoggerImpl;
+// ── Pool singleton ────────────────────────────────────────────────────
+let _pool: Pool | null = null;
 
-  // Repositories (will be added in M2-M4)
-  // Services (will be added in M2-M4)
-  // Use cases (will be added in M2-M4)
+function getPool(): Pool {
+  if (!_pool) {
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) throw new Error('DATABASE_URL is not set');
+    _pool = new Pool({
+      connectionString: dbUrl,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      max: 5,
+    });
+  }
+  return _pool;
 }
 
-const container: AwilixContainer<Cradle> = createContainer<Cradle>({
-  injectionMode: InjectionMode.PROXY,
-});
+// ── Shared use case dependencies (DRY — Bijakcerdas pattern) ─────────
+const useCaseDependencies: ParameterOption = {
+  injectType: 'destructuring',
+  dependencies: [
+    { name: 'applicationEvent', concrete: serverlessDeps.applicationEvent },
+    { name: 'logger', concrete: serverlessDeps.logger },
+    { name: 'authRepository', internal: 'AuthRepository' },
+    { name: 'passwordService', internal: 'PasswordService' },
+    { name: 'jwtService', internal: 'JwtService' },
+  ],
+};
 
-export function register(): AwilixContainer<Cradle> {
-  // Infrastructure
-  container.register({
-    pool: asValue(pool),
-    applicationEvent: asClass(ApplicationEventImpl).singleton(),
-    logger: asClass(WinstonLoggerImpl).singleton(),
-  });
+// ── Register concrete instances ───────────────────────────────────────
+container.register([
+  { key: 'AuthRepository', Class: PostgresAuthRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
+]);
 
-  // Repositories — placeholder, will be filled in M2-M4
+container.register([
+  { key: 'JwtService', Class: JwtService },
+  { key: 'PasswordService', Class: BcryptPasswordService },
+]);
 
-  // Services — placeholder, will be filled in M2-M4
+// ── Use cases (shared ParameterOption = DRY) ──────────────────────────
+container.register([
+  { key: 'RegisterUserUseCase', Class: RegisterUserUseCase, parameter: useCaseDependencies },
+  { key: 'LoginUserUseCase', Class: LoginUserUseCase, parameter: useCaseDependencies },
+  { key: 'LogoutUserUseCase', Class: LogoutUserUseCase, parameter: useCaseDependencies },
+  { key: 'RefreshTokenUseCase', Class: RefreshTokenUseCase, parameter: useCaseDependencies },
+  { key: 'GetCurrentUserUseCase', Class: GetCurrentUserUseCase, parameter: useCaseDependencies },
+]);
 
-  // Use cases — placeholder, will be filled in M2-M4
-
-  return container;
-}
-
-export default container;
+export { container, getPool };

@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 
-import { env } from '../../commons/env.js';
+import { env } from '../../commons/env';
 
 const pool = new Pool({
   connectionString:

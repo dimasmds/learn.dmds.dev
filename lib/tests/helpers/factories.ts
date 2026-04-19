@@ -1,37 +1,72 @@
 import { vi } from 'vitest';
 
-/**
- * Creates a mock repository with common CRUD methods stubbed as vi.fn().
- * Override any method by passing a partial object.
- */
-export function createMockRepository<T extends Record<string, unknown>>(
-  overrides: Partial<T> = {} as Partial<T>,
-): T {
-  const defaults: Record<string, unknown> = {
-    findAll: vi.fn().mockResolvedValue([]),
-    findById: vi.fn().mockResolvedValue(null),
-    create: vi.fn().mockResolvedValue({}),
-    update: vi.fn().mockResolvedValue({}),
-    delete: vi.fn().mockResolvedValue(true),
-    count: vi.fn().mockResolvedValue(0),
-    exists: vi.fn().mockResolvedValue(false),
-  };
+import type { AuthRepositoryInterface } from '@/lib/domains/auth/repositories/AuthRepositoryInterface';
+import type { PasswordServiceInterface, JwtServiceInterface } from '@/lib/domains/auth/services/AuthServiceInterface';
+import type { LearnDmdsUseCaseDependencies } from '@/lib/applications/usecases/base/dependencies';
 
-  return { ...defaults, ...overrides } as T;
+export function createMockAuthRepository(
+  overrides: Partial<AuthRepositoryInterface> = {},
+): AuthRepositoryInterface {
+  return {
+    createUser: vi.fn(),
+    findUserByEmail: vi.fn(),
+    findUserByUsername: vi.fn(),
+    findUserById: vi.fn(),
+    createSession: vi.fn(),
+    findSessionByRefreshToken: vi.fn(),
+    deleteSession: vi.fn(),
+    deleteUserSessions: vi.fn(),
+    countActiveSessions: vi.fn(),
+    ...overrides,
+  };
+}
+
+export function createMockPasswordService(
+  overrides: Partial<PasswordServiceInterface> = {},
+): PasswordServiceInterface {
+  return {
+    hash: vi.fn().mockResolvedValue('$2a$10$hashedpassword'),
+    compare: vi.fn().mockResolvedValue(true),
+    ...overrides,
+  };
+}
+
+export function createMockJwtService(
+  overrides: Partial<JwtServiceInterface> = {},
+): JwtServiceInterface {
+  return {
+    generateTokenPair: vi.fn().mockReturnValue({
+      accessToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+    }),
+    verifyAccessToken: vi.fn(),
+    verifyRefreshToken: vi.fn(),
+    hashRefreshToken: vi.fn().mockReturnValue('hashed-refresh-token'),
+    ...overrides,
+  };
 }
 
 /**
- * Creates a mock logger with standard log-level methods stubbed as vi.fn().
+ * DRY: Create fully mocked LearnDmdsUseCaseDependencies.
+ * Each use case test only needs to override what it uses.
  */
-export function createMockLogger(): Record<string, ReturnType<typeof vi.fn>> {
+export function createMockUseCaseDependencies(options: {
+  authRepository?: AuthRepositoryInterface;
+  passwordService?: PasswordServiceInterface;
+  jwtService?: JwtServiceInterface;
+} = {}): LearnDmdsUseCaseDependencies {
   return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    fatal: vi.fn(),
-    child: vi.fn().mockReturnValue(
-      createMockLogger(),
-    ),
+    logger: {
+      writeError: vi.fn().mockResolvedValue(undefined),
+      writeClientError: vi.fn().mockResolvedValue(undefined),
+      writeEvent: vi.fn().mockResolvedValue(undefined),
+    },
+    applicationEvent: {
+      raise: vi.fn().mockResolvedValue(undefined),
+      subscribe: vi.fn(),
+    },
+    authRepository: options.authRepository ?? createMockAuthRepository(),
+    passwordService: options.passwordService ?? createMockPasswordService(),
+    jwtService: options.jwtService ?? createMockJwtService(),
   };
 }

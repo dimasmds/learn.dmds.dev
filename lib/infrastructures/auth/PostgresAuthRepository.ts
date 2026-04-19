@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import { Pool } from 'pg';
 import type { AuthRepositoryInterface } from '../../domains/auth/repositories/AuthRepositoryInterface';
 import { User, type UserProps } from '../../domains/auth/entities/User';
 import { AuthSession, type AuthSessionProps } from '../../domains/auth/entities/AuthSession';
@@ -29,19 +29,11 @@ export class PostgresAuthRepository implements AuthRepositoryInterface {
   constructor(private pool: Pool) {}
 
   async createUser(user: User): Promise<User> {
-    const query = `
-      INSERT INTO users (id, username, email, password_hash, display_name, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `;
-    await this.pool.query(query, [
-      user.id,
-      user.username,
-      user.email,
-      user.passwordHash,
-      user.displayName,
-      user.createdAt,
-      user.updatedAt,
-    ]);
+    await this.pool.query(
+      `INSERT INTO users (id, username, email, password_hash, display_name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [user.id, user.username, user.email, user.passwordHash, user.displayName, user.createdAt, user.updatedAt],
+    );
     return user;
   }
 
@@ -73,17 +65,11 @@ export class PostgresAuthRepository implements AuthRepositoryInterface {
   }
 
   async createSession(session: AuthSession): Promise<AuthSession> {
-    const query = `
-      INSERT INTO auth_sessions (id, user_id, refresh_token_hash, expires_at, created_at)
-      VALUES ($1, $2, $3, $4, $5)
-    `;
-    await this.pool.query(query, [
-      session.id,
-      session.userId,
-      session.refreshTokenHash,
-      session.expiresAt,
-      session.createdAt,
-    ]);
+    await this.pool.query(
+      `INSERT INTO auth_sessions (id, user_id, refresh_token_hash, expires_at, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [session.id, session.userId, session.refreshTokenHash, session.expiresAt, session.createdAt],
+    );
     return session;
   }
 

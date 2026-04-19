@@ -7,15 +7,11 @@ import {
   AwilixContainer,
 } from 'awilix';
 
-import {
-  ApplicationEventImpl,
-  WinstonLoggerImpl,
-} from '@kopiketuk/framework';
-
-import pool from './database/pool';
+import { Pool } from 'pg';
 import { JwtService } from './auth/JwtService';
 import { BcryptPasswordService } from './auth/BcryptPasswordService';
 import { PostgresAuthRepository } from './auth/PostgresAuthRepository';
+import { serverlessDeps } from './serverless-deps';
 
 import { RegisterUserUseCase } from '../applications/usecases/auth/RegisterUserUseCase';
 import { LoginUserUseCase } from '../applications/usecases/auth/LoginUserUseCase';
@@ -24,21 +20,9 @@ import { RefreshTokenUseCase } from '../applications/usecases/auth/RefreshTokenU
 import { GetCurrentUserUseCase } from '../applications/usecases/auth/GetCurrentUserUseCase';
 
 export interface Cradle {
-  // Database
-  pool: typeof pool;
-
-  // Framework infrastructures
-  applicationEvent: ApplicationEventImpl;
-  logger: WinstonLoggerImpl;
-
-  // Auth services
   jwtService: JwtService;
   passwordService: BcryptPasswordService;
-
-  // Auth repositories
   authRepository: PostgresAuthRepository;
-
-  // Auth use cases
   registerUserUseCase: RegisterUserUseCase;
   loginUserUseCase: LoginUserUseCase;
   logoutUserUseCase: LogoutUserUseCase;
@@ -47,66 +31,98 @@ export interface Cradle {
 }
 
 const container: AwilixContainer<Cradle> = createContainer<Cradle>({
-  injectionMode: InjectionMode.PROXY,
+  injectionMode: InjectionMode.CLASSIC,
 });
 
+let _pool: Pool | null = null;
+
+function buildDatabaseConfig() {
+  const rawUrl = process.env.DATABASE_URL || '';
+  if (!rawUrl) return null;
+
+  // Supabase pooler port 6543 (transaction mode) doesn't support
+  // all operations needed for auth. Use direct connection port 5432 instead.
+  const match = rawUrl.match(/^postgresql?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+  if (match) {
+    const [, user, password, host, _port, database] = match;
+    // Pooler host: aws-0-<region>.pooler.supabase.com → extract ref from user (postgres.<ref>)
+    // Direct host: db.<ref>.supabase.co
+    const isPooler = host.includes('pooler.supabase.com');
+    const userRef = user.includes('.') ? user.split('.')[1] : null;
+    return {
+      host: isPooler && userRef ? `db.${userRef}.supabase.co` : host,
+      port: isPooler ? 5432 : parseInt(_port, 10),
+      database,
+      user: isPooler ? 'postgres' : user, // direct connection uses 'postgres', not 'postgres.<ref>'
+      password,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    };
+  }
+
+  // Fallback: use connectionString directly
+  return { connectionString: rawUrl, ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false };
+}
+
+function getPool(): Pool {
+  if (!_pool) {
+    const config = buildDatabaseConfig();
+    if (!config) throw new Error('DATABASE_URL is not set');
+    _pool = new Pool({
+      ...config,
+      max: 5,
+    });
+  }
+  return _pool;
+}
+
 export function register(): AwilixContainer<Cradle> {
-  // Infrastructure
+  const deps = serverlessDeps;
+
   container.register({
-    pool: asValue(pool),
-
-    // Framework
-    applicationEvent: asClass(ApplicationEventImpl).singleton(),
-    logger: asClass(WinstonLoggerImpl).singleton(),
-
-    // Auth services
     jwtService: asClass(JwtService).singleton(),
     passwordService: asClass(BcryptPasswordService).singleton(),
+    authRepository: asFunction(() => {
+      return new PostgresAuthRepository(getPool());
+    }).singleton(),
 
-    // Auth repositories
-    authRepository: asClass(PostgresAuthRepository).singleton(),
-  });
-
-  // Use cases (need explicit dependency injection)
-  container.register({
-    registerUserUseCase: asFunction((cradle) => {
+    registerUserUseCase: asFunction(() => {
       return new RegisterUserUseCase(
-        { applicationEvent: cradle.applicationEvent, logger: cradle.logger },
-        cradle.authRepository,
-        cradle.passwordService,
+        { applicationEvent: deps.applicationEvent, logger: deps.logger },
+        container.cradle.authRepository,
+        container.cradle.passwordService,
       );
     }).singleton(),
 
-    loginUserUseCase: asFunction((cradle) => {
+    loginUserUseCase: asFunction(() => {
       return new LoginUserUseCase(
-        { applicationEvent: cradle.applicationEvent, logger: cradle.logger },
-        cradle.authRepository,
-        cradle.passwordService,
-        cradle.jwtService,
+        { applicationEvent: deps.applicationEvent, logger: deps.logger },
+        container.cradle.authRepository,
+        container.cradle.passwordService,
+        container.cradle.jwtService,
       );
     }).singleton(),
 
-    logoutUserUseCase: asFunction((cradle) => {
+    logoutUserUseCase: asFunction(() => {
       return new LogoutUserUseCase(
-        { applicationEvent: cradle.applicationEvent, logger: cradle.logger },
-        cradle.authRepository,
-        cradle.jwtService,
+        { applicationEvent: deps.applicationEvent, logger: deps.logger },
+        container.cradle.authRepository,
+        container.cradle.jwtService,
       );
     }).singleton(),
 
-    refreshTokenUseCase: asFunction((cradle) => {
+    refreshTokenUseCase: asFunction(() => {
       return new RefreshTokenUseCase(
-        { applicationEvent: cradle.applicationEvent, logger: cradle.logger },
-        cradle.authRepository,
-        cradle.jwtService,
+        { applicationEvent: deps.applicationEvent, logger: deps.logger },
+        container.cradle.authRepository,
+        container.cradle.jwtService,
       );
     }).singleton(),
 
-    getCurrentUserUseCase: asFunction((cradle) => {
+    getCurrentUserUseCase: asFunction(() => {
       return new GetCurrentUserUseCase(
-        { applicationEvent: cradle.applicationEvent, logger: cradle.logger },
-        cradle.authRepository,
-        cradle.jwtService,
+        { applicationEvent: deps.applicationEvent, logger: deps.logger },
+        container.cradle.authRepository,
+        container.cradle.jwtService,
       );
     }).singleton(),
   });

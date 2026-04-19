@@ -27,9 +27,7 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
 
   pgm.addConstraint('users', 'uq_users_username', { unique: ['username'] });
   pgm.addConstraint('users', 'uq_users_email', { unique: ['email'] });
-  pgm.addConstraint('users', 'ck_users_username_format', {
-    check: { literal: true, value: "username ~ '^[a-zA-Z][a-zA-Z0-9_-]{2,19}$'" },
-  });
+  pgm.sql(`ALTER TABLE users ADD CONSTRAINT ck_users_username_format CHECK (username ~ '^[a-zA-Z][a-zA-Z0-9_-]{2,19}$')`);
 }
 
 export async function down(pgm: MigrationBuilder): Promise<void> {

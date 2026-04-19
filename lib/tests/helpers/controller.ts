@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { vi } from 'vitest';
 
-import { JwtService } from '@/lib/infrastructures/auth/JwtService';
+import { JwtService } from '../../infrastructures/auth/JwtService';
 
 import type { DatabaseTestContext } from './database';
 

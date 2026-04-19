@@ -2,9 +2,7 @@ import {
   ApplicationUseCase,
   AuthenticationError,
 } from '@kopiketuk/framework';
-import type { UseCaseDependencies } from '@kopiketuk/framework';
-import type { AuthRepositoryInterface } from '../../../domains/auth/repositories/AuthRepositoryInterface';
-import type { JwtServiceInterface } from '../../../domains/auth/services/AuthServiceInterface';
+import type { LearnDmdsUseCaseDependencies } from '../base/dependencies';
 
 export interface LogoutUserInput {
   refreshToken: string;
@@ -18,12 +16,11 @@ export class LogoutUserUseCase extends ApplicationUseCase<
   LogoutUserInput,
   LogoutUserOutput
 > {
-  constructor(
-    dependencies: UseCaseDependencies,
-    private authRepository: AuthRepositoryInterface,
-    private jwtService: JwtServiceInterface,
-  ) {
-    super(dependencies);
+  private readonly authRepository = this.deps.authRepository;
+  private readonly jwtService = this.deps.jwtService;
+
+  constructor(private deps: LearnDmdsUseCaseDependencies) {
+    super(deps);
   }
 
   protected async run(payload: LogoutUserInput): Promise<LogoutUserOutput> {
@@ -34,9 +31,11 @@ export class LogoutUserUseCase extends ApplicationUseCase<
     const tokenHash = this.jwtService.hashRefreshToken(payload.refreshToken);
     const session = await this.authRepository.findSessionByRefreshToken(tokenHash);
 
-    if (session) {
-      await this.authRepository.deleteSession(session.id);
+    if (!session) {
+      throw new AuthenticationError('LOGOUT_USER.SESSION_NOT_FOUND');
     }
+
+    await this.authRepository.deleteSession(session.id);
 
     return { success: true };
   }

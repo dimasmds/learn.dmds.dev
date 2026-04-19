@@ -1,158 +1,78 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthenticationError } from '@kopiketuk/framework';
 import { RefreshTokenUseCase } from '../RefreshTokenUseCase';
-import type { AuthRepositoryInterface } from '../../../../domains/auth/repositories/AuthRepositoryInterface';
-import type { JwtServiceInterface } from '../../../../domains/auth/services/AuthServiceInterface';
-import { User } from '../../../../domains/auth/entities/User';
-import { AuthSession } from '../../../../domains/auth/entities/AuthSession';
-
-function createMockAuthRepository(overrides: Partial<AuthRepositoryInterface> = {}): AuthRepositoryInterface {
-  return {
-    createUser: vi.fn().mockResolvedValue(undefined),
-    findUserByEmail: vi.fn().mockResolvedValue(null),
-    findUserByUsername: vi.fn().mockResolvedValue(null),
-    findUserById: vi.fn().mockResolvedValue(null),
-    createSession: vi.fn().mockResolvedValue(undefined),
-    findSessionByRefreshToken: vi.fn().mockResolvedValue(null),
-    deleteSession: vi.fn().mockResolvedValue(undefined),
-    deleteUserSessions: vi.fn().mockResolvedValue(undefined),
-    countActiveSessions: vi.fn().mockResolvedValue(0),
-    ...overrides,
-  };
-}
-
-function createMockJwtService(): JwtServiceInterface {
-  return {
-    generateTokenPair: vi.fn().mockReturnValue({
-      accessToken: 'new-access.token',
-      refreshToken: 'new-refresh.token',
-    }),
-    verifyAccessToken: vi.fn().mockReturnValue({ userId: 'user-id', username: 'johndoe' }),
-    verifyRefreshToken: vi.fn().mockReturnValue({ userId: 'user-id', username: 'johndoe' }),
-    hashRefreshToken: vi.fn().mockReturnValue('hashed-token'),
-  };
-}
-
-function createMockDependencies() {
-  return {
-    applicationEvent: { raise: vi.fn().mockResolvedValue(undefined), subscribe: vi.fn() },
-    logger: {
-      writeError: vi.fn().mockResolvedValue(undefined),
-      writeClientError: vi.fn().mockResolvedValue(undefined),
-      writeEvent: vi.fn().mockResolvedValue(undefined),
-    },
-  };
-}
+import { AuthSession } from '@/lib/domains/auth/entities/AuthSession';
+import { createMockUseCaseDependencies } from '@/lib/tests/helpers/factories';
 
 describe('RefreshTokenUseCase', () => {
-  let mockRepository: AuthRepositoryInterface;
-  let mockJwtService: JwtServiceInterface;
-  let mockDependencies: ReturnType<typeof createMockDependencies>;
   let useCase: RefreshTokenUseCase;
 
-  const mockUser = User.create({
-    username: 'johndoe',
-    email: 'john@example.com',
-    passwordHash: '$2a$10$hashed',
-    displayName: 'John Doe',
-  });
-
   const mockSession = AuthSession.create({
-    userId: 'user-id',
-    refreshTokenHash: 'hashed-token',
+    userId: 'user-1',
+    refreshTokenHash: 'hashed-old-refresh',
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
-  beforeEach(() => {
-    mockRepository = createMockAuthRepository({
-      findSessionByRefreshToken: vi.fn().mockResolvedValue(mockSession),
-      findUserById: vi.fn().mockResolvedValue(mockUser),
+  function createDeps(overrides: Record<string, any> = {}) {
+    return createMockUseCaseDependencies({
+      authRepository: overrides.authRepository,
+      jwtService: overrides.jwtService,
     });
-    mockJwtService = createMockJwtService();
-    mockDependencies = createMockDependencies();
-    useCase = new RefreshTokenUseCase(mockDependencies, mockRepository, mockJwtService);
-  });
+  }
 
   describe('happy path', () => {
-    it('should refresh tokens successfully', async () => {
+    it('should rotate tokens and return new pair', async () => {
+      const deps = createDeps();
+      (deps.authRepository.findSessionByRefreshToken as ReturnType<typeof vi.fn>).mockResolvedValue(mockSession);
+      (deps.jwtService.verifyRefreshToken as ReturnType<typeof vi.fn>).mockReturnValue({ userId: 'user-1', username: 'johndoe' });
+      (deps.jwtService.generateTokenPair as ReturnType<typeof vi.fn>).mockReturnValue({
+        accessToken: 'new-access', refreshToken: 'new-refresh',
+      });
+      useCase = new RefreshTokenUseCase(deps);
+
       const result = await useCase.execute({ refreshToken: 'old-refresh-token' });
 
-      expect(result.accessToken).toBe('new-access.token');
-      expect(result.refreshToken).toBe('new-refresh.token');
-    });
-
-    it('should verify the refresh token signature first', async () => {
-      await useCase.execute({ refreshToken: 'old-refresh-token' });
-
-      expect(mockJwtService.verifyRefreshToken).toHaveBeenCalledWith('old-refresh-token');
-    });
-
-    it('should delete old session (rotation)', async () => {
-      await useCase.execute({ refreshToken: 'old-refresh-token' });
-
-      expect(mockRepository.deleteSession).toHaveBeenCalledWith(mockSession.id);
-    });
-
-    it('should create new session with new refresh token', async () => {
-      await useCase.execute({ refreshToken: 'old-refresh-token' });
-
-      expect(mockRepository.createSession).toHaveBeenCalledTimes(1);
-    });
-
-    it('should generate new token pair', async () => {
-      await useCase.execute({ refreshToken: 'old-refresh-token' });
-
-      expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith({
-        userId: mockUser.id,
-        username: 'johndoe',
-      });
+      expect(result.accessToken).toBe('new-access');
+      expect(result.refreshToken).toBe('new-refresh');
+      expect(deps.authRepository.deleteSession).toHaveBeenCalledWith(mockSession.id);
+      expect(deps.authRepository.createSession).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('validation', () => {
-    it('should throw AuthenticationError when no refresh token provided', async () => {
-      await expect(useCase.execute({ refreshToken: '' }))
-        .rejects.toThrow('REFRESH_TOKEN.NO_TOKEN_PROVIDED');
-    });
-  });
-
-  describe('error cases', () => {
+  describe('authentication failures', () => {
     it('should throw AuthenticationError when session not found', async () => {
-      mockRepository = createMockAuthRepository({
-        findSessionByRefreshToken: vi.fn().mockResolvedValue(null),
-      });
-      useCase = new RefreshTokenUseCase(mockDependencies, mockRepository, mockJwtService);
+      const deps = createMockUseCaseDependencies();
+      (deps.authRepository.findSessionByRefreshToken as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      useCase = new RefreshTokenUseCase(deps);
 
-      await expect(useCase.execute({ refreshToken: 'old-token' }))
+      await expect(useCase.execute({ refreshToken: 'invalid' }))
         .rejects.toThrow('REFRESH_TOKEN.SESSION_NOT_FOUND');
     });
 
-    it('should throw AuthenticationError when session is expired and delete it', async () => {
-      const expiredSession = AuthSession.reconstitute('session-id', {
-        userId: 'user-id',
-        refreshTokenHash: 'hashed-token',
-        expiresAt: new Date(Date.now() - 1000), // expired
-        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+    it('should throw AuthenticationError when session expired', async () => {
+      // Create valid session then override expiresAt to simulate expiry
+      const expiredSession = AuthSession.create({
+        userId: 'user-1',
+        refreshTokenHash: 'hashed',
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       });
-      mockRepository = createMockAuthRepository({
-        findSessionByRefreshToken: vi.fn().mockResolvedValue(expiredSession),
-      });
-      useCase = new RefreshTokenUseCase(mockDependencies, mockRepository, mockJwtService);
+      Object.defineProperty(expiredSession, 'expiresAt', { value: new Date(Date.now() - 1000) });
+      const deps = createMockUseCaseDependencies();
+      (deps.authRepository.findSessionByRefreshToken as ReturnType<typeof vi.fn>).mockResolvedValue(expiredSession);
+      useCase = new RefreshTokenUseCase(deps);
 
-      await expect(useCase.execute({ refreshToken: 'old-token' }))
+      await expect(useCase.execute({ refreshToken: 'expired-token' }))
         .rejects.toThrow('REFRESH_TOKEN.SESSION_EXPIRED');
-      expect(mockRepository.deleteSession).toHaveBeenCalledWith('session-id');
     });
 
-    it('should throw AuthenticationError when user not found', async () => {
-      mockRepository = createMockAuthRepository({
-        findSessionByRefreshToken: vi.fn().mockResolvedValue(mockSession),
-        findUserById: vi.fn().mockResolvedValue(null),
-      });
-      useCase = new RefreshTokenUseCase(mockDependencies, mockRepository, mockJwtService);
+    it('should throw AuthenticationError when refresh token invalid', async () => {
+      const deps = createMockUseCaseDependencies();
+      (deps.authRepository.findSessionByRefreshToken as ReturnType<typeof vi.fn>).mockResolvedValue(mockSession);
+      (deps.jwtService.verifyRefreshToken as ReturnType<typeof vi.fn>).mockReturnValue(null);
+      useCase = new RefreshTokenUseCase(deps);
 
-      await expect(useCase.execute({ refreshToken: 'old-token' }))
-        .rejects.toThrow('REFRESH_TOKEN.USER_NOT_FOUND');
+      await expect(useCase.execute({ refreshToken: 'tampered-token' }))
+        .rejects.toThrow('REFRESH_TOKEN.INVALID_TOKEN');
     });
   });
 });

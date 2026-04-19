@@ -2,9 +2,7 @@ import {
   ApplicationUseCase,
   AuthenticationError,
 } from '@kopiketuk/framework';
-import type { UseCaseDependencies } from '@kopiketuk/framework';
-import type { AuthRepositoryInterface } from '../../../domains/auth/repositories/AuthRepositoryInterface';
-import type { JwtServiceInterface } from '../../../domains/auth/services/AuthServiceInterface';
+import type { LearnDmdsUseCaseDependencies } from '../base/dependencies';
 
 export interface GetCurrentUserInput {
   accessToken: string;
@@ -22,20 +20,18 @@ export class GetCurrentUserUseCase extends ApplicationUseCase<
   GetCurrentUserInput,
   GetCurrentUserOutput
 > {
-  constructor(
-    dependencies: UseCaseDependencies,
-    private authRepository: AuthRepositoryInterface,
-    private jwtService: JwtServiceInterface,
-  ) {
-    super(dependencies);
+  private readonly authRepository = this.deps.authRepository;
+  private readonly jwtService = this.deps.jwtService;
+
+  constructor(private deps: LearnDmdsUseCaseDependencies) {
+    super(deps);
   }
 
   protected async run(payload: GetCurrentUserInput): Promise<GetCurrentUserOutput> {
-    if (!payload.accessToken) {
-      throw new AuthenticationError('GET_CURRENT_USER.NO_ACCESS_TOKEN');
-    }
-
     const decoded = this.jwtService.verifyAccessToken(payload.accessToken);
+    if (!decoded) {
+      throw new AuthenticationError('GET_CURRENT_USER.INVALID_TOKEN');
+    }
 
     const user = await this.authRepository.findUserById(decoded.userId);
     if (!user) {

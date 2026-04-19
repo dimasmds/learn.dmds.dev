@@ -2,10 +2,8 @@ import {
   ApplicationUseCase,
   InvariantError,
 } from '@kopiketuk/framework';
-import type { UseCaseDependencies } from '@kopiketuk/framework';
 import { User } from '../../../domains/auth/entities/User';
-import type { AuthRepositoryInterface } from '../../../domains/auth/repositories/AuthRepositoryInterface';
-import type { PasswordServiceInterface } from '../../../domains/auth/services/AuthServiceInterface';
+import type { LearnDmdsUseCaseDependencies } from '../base/dependencies';
 
 export interface RegisterUserInput {
   username: string;
@@ -26,17 +24,11 @@ export class RegisterUserUseCase extends ApplicationUseCase<
   RegisterUserInput,
   RegisterUserOutput
 > {
-  private authRepository: AuthRepositoryInterface;
-  private passwordService: PasswordServiceInterface;
+  private readonly authRepository = this.deps.authRepository;
+  private readonly passwordService = this.deps.passwordService;
 
-  constructor(
-    dependencies: UseCaseDependencies,
-    authRepository: AuthRepositoryInterface,
-    passwordService: PasswordServiceInterface,
-  ) {
-    super(dependencies);
-    this.authRepository = authRepository;
-    this.passwordService = passwordService;
+  constructor(private deps: LearnDmdsUseCaseDependencies) {
+    super(deps);
     // Jangan log input — mengandung password plain text
     this.setLoggingRestriction({ input: true });
   }
@@ -44,7 +36,6 @@ export class RegisterUserUseCase extends ApplicationUseCase<
   protected async run(
     payload: RegisterUserInput,
   ): Promise<RegisterUserOutput> {
-    // Validate required fields
     if (!payload.username || payload.username.trim().length === 0) {
       throw new InvariantError('REGISTER_USER.NO_USERNAME');
     }
@@ -57,12 +48,10 @@ export class RegisterUserUseCase extends ApplicationUseCase<
       throw new InvariantError('REGISTER_USER.NO_PASSWORD');
     }
 
-    // Validate password match
     if (payload.password !== payload.confirmPassword) {
       throw new InvariantError('REGISTER_USER.PASSWORD_NOT_MATCH');
     }
 
-    // Check uniqueness
     const existingUser = await this.authRepository.findUserByEmail(
       payload.email,
     );
@@ -77,18 +66,15 @@ export class RegisterUserUseCase extends ApplicationUseCase<
       throw new InvariantError('REGISTER_USER.USERNAME_ALREADY_EXISTS');
     }
 
-    // Hash password using real bcrypt
     const passwordHash = await this.passwordService.hash(payload.password);
 
-    // Create user entity
     const user = User.create({
       username: payload.username,
       email: payload.email,
       passwordHash,
-      displayName: payload.username, // default displayName = username
+      displayName: payload.username,
     });
 
-    // Save via repository
     await this.authRepository.createUser(user);
 
     return {

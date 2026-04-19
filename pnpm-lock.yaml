@@ -14,9 +14,6 @@ importers:
       '@kopiketuk/framework':
         specifier: github:kopiketuk/framework
         version: https://codeload.github.com/kopiketuk/framework/tar.gz/f95b16c6ea3ae9ad7e12ffc9b7f2b80309a83047(winston@3.19.0)
-      awilix:
-        specifier: ^13.0.3
-        version: 13.0.3
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -26,6 +23,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      instances-container:
+        specifier: ^2.0.6
+        version: 2.0.6
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -1421,10 +1421,6 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
-  awilix@13.0.3:
-    resolution: {integrity: sha512-WpgYKwf8XEPAxabPxBYGvxz1QZhyxoopQLLqpwwVqSQAvTO46yhld3M9nfMuV8t2FjsTO7DQblALD9w+C8iVKQ==}
-    engines: {node: '>=20.0.0'}
-
   axe-core@4.11.3:
     resolution: {integrity: sha512-zBQouZixDTbo3jMGqHKyePxYxr1e5W8UdTmBQ7sNtaA9M2bE32daxxPLS/jojhKOHxQ7LWwPjfiwf/fhaJWzlg==}
     engines: {node: '>=4'}
@@ -2288,6 +2284,9 @@ packages:
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
+
+  instances-container@2.0.6:
+    resolution: {integrity: sha512-h117iLPh+IuCCo44oh4FftUakm8df4cf4pg5bm6EQSkEl5Ol26yKVdyB4T4MNJshiE75aFLS8j1IIi8obe8B+g==}
 
   internal-slot@1.1.0:
     resolution: {integrity: sha512-4gd7VpWNQNB4UKKCFFVcp1AVv+FMOgs9NKzjHKusc8jTMhd5eL1NqQqOpE0KzMds804/yHlglp3uxgluOqAPLw==}
@@ -5122,10 +5121,6 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
-  awilix@13.0.3:
-    dependencies:
-      fast-glob: 3.3.3
-
   axe-core@4.11.3: {}
 
   axobject-query@4.1.0: {}
@@ -6118,6 +6113,8 @@ snapshots:
   indent-string@4.0.0: {}
 
   inherits@2.0.4: {}
+
+  instances-container@2.0.6: {}
 
   internal-slot@1.1.0:
     dependencies:

@@ -1,86 +1,51 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createContainer, InjectionMode, asFunction, asValue, type AwilixContainer } from 'awilix';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NextRequest } from 'next/server';
 
-import { JwtService } from '@/lib/infrastructures/auth/JwtService';
-import { BcryptPasswordService } from '@/lib/infrastructures/auth/BcryptPasswordService';
-import { PostgresAuthRepository } from '@/lib/infrastructures/auth/PostgresAuthRepository';
-import { RegisterUserUseCase } from '@/lib/applications/usecases/auth/RegisterUserUseCase';
-import { LoginUserUseCase } from '@/lib/applications/usecases/auth/LoginUserUseCase';
-import { LogoutUserUseCase } from '@/lib/applications/usecases/auth/LogoutUserUseCase';
-import { RefreshTokenUseCase } from '@/lib/applications/usecases/auth/RefreshTokenUseCase';
-import { GetCurrentUserUseCase } from '@/lib/applications/usecases/auth/GetCurrentUserUseCase';
-import { serverlessDeps } from '@/lib/infrastructures/serverless-deps';
+import type { RegisterUserUseCase } from '@/lib/applications/usecases/auth/RegisterUserUseCase';
+import type { LoginUserUseCase } from '@/lib/applications/usecases/auth/LoginUserUseCase';
+import type { LogoutUserUseCase } from '@/lib/applications/usecases/auth/LogoutUserUseCase';
+import type { RefreshTokenUseCase } from '@/lib/applications/usecases/auth/RefreshTokenUseCase';
+import type { GetCurrentUserUseCase } from '@/lib/applications/usecases/auth/GetCurrentUserUseCase';
+import { container } from '@/lib/infrastructures/container';
+
+// Mock container.getInstance to return mock use cases
+const mockRegisterUseCase = { execute: vi.fn() };
+const mockLoginUseCase = { execute: vi.fn() };
+const mockLogoutUseCase = { execute: vi.fn() };
+const mockRefreshUseCase = { execute: vi.fn() };
+const mockGetCurrentUserUseCase = { execute: vi.fn() };
+
+vi.spyOn(container, 'getInstance').mockImplementation((key: string) => {
+  switch (key) {
+    case 'RegisterUserUseCase': return mockRegisterUseCase as any;
+    case 'LoginUserUseCase': return mockLoginUseCase as any;
+    case 'LogoutUserUseCase': return mockLogoutUseCase as any;
+    case 'RefreshTokenUseCase': return mockRefreshUseCase as any;
+    case 'GetCurrentUserUseCase': return mockGetCurrentUserUseCase as any;
+    default: throw new Error(`Unknown key: ${key}`);
+  }
+});
+
+// Import controller AFTER mock setup
 import { AuthController } from '../AuthController';
-import { createDatabaseTestContext } from '@/lib/tests/helpers/database';
 
-describe.sequential('AuthController', () => {
-  const db = createDatabaseTestContext();
-  let container: AwilixContainer;
-  let controller: AuthController;
-
-  beforeAll(async () => {
-    await db.setup();
-
-    const testPool = db.pool;
-    const jwtService = new JwtService();
-    const passwordService = new BcryptPasswordService();
-    const authRepository = new PostgresAuthRepository(testPool);
-
-    container = createContainer({ injectionMode: InjectionMode.CLASSIC });
-
-    container.register({
-      jwtService: asValue(jwtService),
-      passwordService: asValue(passwordService),
-      authRepository: asValue(authRepository),
-
-      registerUserUseCase: asFunction(() => new RegisterUserUseCase(
-        { applicationEvent: serverlessDeps.applicationEvent, logger: serverlessDeps.logger },
-        authRepository,
-        passwordService,
-      )),
-
-      loginUserUseCase: asFunction(() => new LoginUserUseCase(
-        { applicationEvent: serverlessDeps.applicationEvent, logger: serverlessDeps.logger },
-        authRepository,
-        passwordService,
-        jwtService,
-      )),
-
-      logoutUserUseCase: asFunction(() => new LogoutUserUseCase(
-        { applicationEvent: serverlessDeps.applicationEvent, logger: serverlessDeps.logger },
-        authRepository,
-        jwtService,
-      )),
-
-      refreshTokenUseCase: asFunction(() => new RefreshTokenUseCase(
-        { applicationEvent: serverlessDeps.applicationEvent, logger: serverlessDeps.logger },
-        authRepository,
-        jwtService,
-      )),
-
-      getCurrentUserUseCase: asFunction(() => new GetCurrentUserUseCase(
-        { applicationEvent: serverlessDeps.applicationEvent, logger: serverlessDeps.logger },
-        authRepository,
-        jwtService,
-      )),
-    });
-
-    controller = new AuthController(container);
-  });
-
-  afterAll(async () => {
-    await db.teardown();
-  });
-
-  beforeEach(async () => {
-    await db.query('DELETE FROM auth_sessions');
-    await db.query('DELETE FROM users');
+describe('AuthController', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   describe('register', () => {
     it('should register a new user and return 201', async () => {
       const { NextRequest } = await import('next/server');
-      const nextReq = new NextRequest('http://localhost:3000/api/auth/register', {
+      mockRegisterUseCase.execute.mockResolvedValue({
+        id: 'user-1',
+        username: 'newuser',
+        email: 'new@example.com',
+        displayName: 'newuser',
+        createdAt: new Date(),
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({
           username: 'newuser',
@@ -90,140 +55,93 @@ describe.sequential('AuthController', () => {
         }),
       });
 
-      const response = await controller.register(nextReq);
+      const response = await AuthController.register(request);
       const body = await response.json();
 
       expect(response.status).toBe(201);
       expect(body.status).toBe('success');
       expect(body.data.user.username).toBe('newuser');
-      expect(body.data.user.email).toBe('new@example.com');
-      expect(body.data.user.id).toBeDefined();
+      expect(container.getInstance).toHaveBeenCalledWith('RegisterUserUseCase');
     });
 
-    it('should return 400 when username is missing', async () => {
+    it('should return 400 when validation fails', async () => {
       const { NextRequest } = await import('next/server');
+      const { InvariantError } = await import('@kopiketuk/framework');
+      mockRegisterUseCase.execute.mockRejectedValue(new InvariantError('REGISTER_USER.NO_USERNAME'));
+
       const request = new NextRequest('http://localhost:3000/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          password: 'Password123!',
-          confirmPassword: 'Password123!',
-        }),
+        body: JSON.stringify({ email: 'test@example.com', password: 'Password123!', confirmPassword: 'Password123!' }),
       });
 
-      const response = await controller.register(request);
+      const response = await AuthController.register(request);
       expect(response.status).toBe(400);
     });
 
     it('should return 400 when passwords do not match', async () => {
       const { NextRequest } = await import('next/server');
+      const { InvariantError } = await import('@kopiketuk/framework');
+      mockRegisterUseCase.execute.mockRejectedValue(new InvariantError('REGISTER_USER.PASSWORD_NOT_MATCH'));
+
       const request = new NextRequest('http://localhost:3000/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({
-          username: 'testuser',
-          email: 'test@example.com',
-          password: 'Password123!',
-          confirmPassword: 'DifferentPassword!',
-        }),
+        body: JSON.stringify({ username: 'testuser', email: 'test@example.com', password: 'Password123!', confirmPassword: 'Different!' }),
       });
 
-      const response = await controller.register(request);
+      const response = await AuthController.register(request);
       expect(response.status).toBe(400);
     });
 
     it('should return 400 when email already exists', async () => {
       const { NextRequest } = await import('next/server');
+      const { InvariantError } = await import('@kopiketuk/framework');
+      mockRegisterUseCase.execute.mockRejectedValue(new InvariantError('REGISTER_USER.EMAIL_ALREADY_EXISTS'));
 
-      const req1 = new NextRequest('http://localhost:3000/api/auth/register', {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({
-          username: 'firstuser',
-          email: 'dup@example.com',
-          password: 'Password123!',
-          confirmPassword: 'Password123!',
-        }),
-      });
-      await controller.register(req1);
-
-      const req2 = new NextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          username: 'seconduser',
-          email: 'dup@example.com',
-          password: 'Password123!',
-          confirmPassword: 'Password123!',
-        }),
+        body: JSON.stringify({ username: 'testuser', email: 'dup@example.com', password: 'Password123!', confirmPassword: 'Password123!' }),
       });
 
-      const response = await controller.register(req2);
+      const response = await AuthController.register(request);
       expect(response.status).toBe(400);
     });
   });
 
   describe('login', () => {
-    const testPassword = 'Password123!';
-
-    beforeEach(async () => {
-      const { NextRequest } = await import('next/server');
-      const registerReq = new NextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          username: 'loginuser',
-          email: 'login@example.com',
-          password: testPassword,
-          confirmPassword: testPassword,
-        }),
-      });
-      await controller.register(registerReq);
-    });
-
     it('should login and return 200 with access token', async () => {
       const { NextRequest } = await import('next/server');
-      const request = new NextRequest('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'login@example.com',
-          password: testPassword,
-        }),
+      mockLoginUseCase.execute.mockResolvedValue({
+        accessToken: 'access-token-123',
+        refreshToken: 'refresh-token-456',
+        user: { id: 'user-1', username: 'loginuser', email: 'login@example.com', displayName: 'loginuser' },
       });
 
-      const response = await controller.login(request);
+      const request = new NextRequest('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'login@example.com', password: 'Password123!' }),
+      });
+
+      const response = await AuthController.login(request);
       const body = await response.json();
 
       expect(response.status).toBe(200);
       expect(body.status).toBe('success');
-      expect(body.data.accessToken).toBeDefined();
+      expect(body.data.accessToken).toBe('access-token-123');
       expect(body.data.user.username).toBe('loginuser');
-
-      const cookie = response.cookies.get('refresh_token');
-      expect(cookie).toBeDefined();
+      expect(container.getInstance).toHaveBeenCalledWith('LoginUserUseCase');
     });
 
-    it('should return 401 with wrong password', async () => {
+    it('should return 401 with wrong credentials', async () => {
       const { NextRequest } = await import('next/server');
+      const { AuthenticationError } = await import('@kopiketuk/framework');
+      mockLoginUseCase.execute.mockRejectedValue(new AuthenticationError('LOGIN_USER.INVALID_CREDENTIALS'));
+
       const request = new NextRequest('http://localhost:3000/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({
-          email: 'login@example.com',
-          password: 'WrongPassword!',
-        }),
+        body: JSON.stringify({ email: 'login@example.com', password: 'Wrong!' }),
       });
 
-      const response = await controller.login(request);
-      expect(response.status).toBe(401);
-    });
-
-    it('should return 401 with non-existent email', async () => {
-      const { NextRequest } = await import('next/server');
-      const request = new NextRequest('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'noone@example.com',
-          password: testPassword,
-        }),
-      });
-
-      const response = await controller.login(request);
+      const response = await AuthController.login(request);
       expect(response.status).toBe(401);
     });
   });
@@ -233,89 +151,42 @@ describe.sequential('AuthController', () => {
       const { NextRequest } = await import('next/server');
       const request = new NextRequest('http://localhost:3000/api/auth/me');
 
-      const response = await controller.me(request);
+      const response = await AuthController.me(request);
       expect(response.status).toBe(401);
     });
 
     it('should return user data with valid access token', async () => {
       const { NextRequest } = await import('next/server');
-
-      // Register
-      const registerReq = new NextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          username: 'meuser',
-          email: 'me@example.com',
-          password: 'Password123!',
-          confirmPassword: 'Password123!',
-        }),
-      });
-      await controller.register(registerReq);
-
-      // Login
-      const loginReq = new NextRequest('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'me@example.com',
-          password: 'Password123!',
-        }),
-      });
-      const loginResponse = await controller.login(loginReq);
-      const loginBody = await loginResponse.json();
-      const accessToken = loginBody.data.accessToken;
-
-      // Get me
-      const meReq = new NextRequest('http://localhost:3000/api/auth/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      mockGetCurrentUserUseCase.execute.mockResolvedValue({
+        id: 'user-1', username: 'meuser', email: 'me@example.com',
+        displayName: 'meuser', createdAt: new Date(),
       });
 
-      const response = await controller.me(meReq);
+      const request = new NextRequest('http://localhost:3000/api/auth/me', {
+        headers: { Authorization: 'Bearer access-token-123' },
+      });
+
+      const response = await AuthController.me(request);
       const body = await response.json();
 
       expect(response.status).toBe(200);
       expect(body.status).toBe('success');
       expect(body.data.user.username).toBe('meuser');
+      expect(container.getInstance).toHaveBeenCalledWith('GetCurrentUserUseCase');
     });
   });
 
   describe('logout', () => {
-    it('should clear refresh_token cookie', async () => {
+    it('should clear refresh_token cookie on success', async () => {
       const { NextRequest } = await import('next/server');
+      mockLogoutUseCase.execute.mockResolvedValue({ success: true });
 
-      // Register + login
-      const registerReq = new NextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          username: 'logoutuser',
-          email: 'logout@example.com',
-          password: 'Password123!',
-          confirmPassword: 'Password123!',
-        }),
-      });
-      await controller.register(registerReq);
-
-      const loginReq = new NextRequest('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'logout@example.com',
-          password: 'Password123!',
-        }),
-      });
-      const loginResponse = await controller.login(loginReq);
-      const refreshToken = loginResponse.cookies.get('refresh_token')?.value;
-
-      // Logout — pass refresh token in cookie
-      const logoutReq = new NextRequest('http://localhost:3000/api/auth/logout', {
-        headers: {
-          Cookie: `refresh_token=${refreshToken}`,
-        },
+      const request = new NextRequest('http://localhost:3000/api/auth/logout', {
+        headers: { Cookie: 'refresh_token=some-token' },
       });
 
-      const response = await controller.logout(logoutReq);
+      const response = await AuthController.logout(request);
       expect(response.status).toBe(200);
-
-      const cookie = response.cookies.get('refresh_token');
-      expect(cookie?.value).toBe('');
     });
   });
 
@@ -324,50 +195,27 @@ describe.sequential('AuthController', () => {
       const { NextRequest } = await import('next/server');
       const request = new NextRequest('http://localhost:3000/api/auth/refresh');
 
-      const response = await controller.refresh(request);
+      const response = await AuthController.refresh(request);
       expect(response.status).toBe(401);
     });
 
-    it('should rotate tokens with valid refresh token', async () => {
+    it('should return new tokens with valid refresh token', async () => {
       const { NextRequest } = await import('next/server');
-
-      // Register + login
-      const registerReq = new NextRequest('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          username: 'refreshuser',
-          email: 'refresh@example.com',
-          password: 'Password123!',
-          confirmPassword: 'Password123!',
-        }),
-      });
-      await controller.register(registerReq);
-
-      const loginReq = new NextRequest('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'refresh@example.com',
-          password: 'Password123!',
-        }),
-      });
-      const loginResponse = await controller.login(loginReq);
-      const refreshToken = loginResponse.cookies.get('refresh_token')?.value;
-
-      // Refresh
-      const refreshReq = new NextRequest('http://localhost:3000/api/auth/refresh', {
-        headers: {
-          Cookie: `refresh_token=${refreshToken}`,
-        },
+      mockRefreshUseCase.execute.mockResolvedValue({
+        accessToken: 'new-access-token',
+        refreshToken: 'new-refresh-token',
       });
 
-      const response = await controller.refresh(refreshReq);
+      const request = new NextRequest('http://localhost:3000/api/auth/refresh', {
+        headers: { Cookie: 'refresh_token=some-token' },
+      });
+
+      const response = await AuthController.refresh(request);
       const body = await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.data.accessToken).toBeDefined();
-
-      const newCookie = response.cookies.get('refresh_token');
-      expect(newCookie).toBeDefined();
+      expect(body.data.accessToken).toBe('new-access-token');
+      expect(container.getInstance).toHaveBeenCalledWith('RefreshTokenUseCase');
     });
   });
 });

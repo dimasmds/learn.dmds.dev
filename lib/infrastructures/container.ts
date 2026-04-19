@@ -1,17 +1,6 @@
-import {
-  createContainer,
-  asClass,
-  asFunction,
-  asValue,
-  InjectionMode,
-  AwilixContainer,
-} from 'awilix';
-
+import type { ParameterOption } from 'instances-container';
+import { createContainer } from 'instances-container';
 import { Pool } from 'pg';
-import { JwtService } from './auth/JwtService';
-import { BcryptPasswordService } from './auth/BcryptPasswordService';
-import { PostgresAuthRepository } from './auth/PostgresAuthRepository';
-import { serverlessDeps } from './serverless-deps';
 
 import { RegisterUserUseCase } from '../applications/usecases/auth/RegisterUserUseCase';
 import { LoginUserUseCase } from '../applications/usecases/auth/LoginUserUseCase';
@@ -19,21 +8,14 @@ import { LogoutUserUseCase } from '../applications/usecases/auth/LogoutUserUseCa
 import { RefreshTokenUseCase } from '../applications/usecases/auth/RefreshTokenUseCase';
 import { GetCurrentUserUseCase } from '../applications/usecases/auth/GetCurrentUserUseCase';
 
-export interface Cradle {
-  jwtService: JwtService;
-  passwordService: BcryptPasswordService;
-  authRepository: PostgresAuthRepository;
-  registerUserUseCase: RegisterUserUseCase;
-  loginUserUseCase: LoginUserUseCase;
-  logoutUserUseCase: LogoutUserUseCase;
-  refreshTokenUseCase: RefreshTokenUseCase;
-  getCurrentUserUseCase: GetCurrentUserUseCase;
-}
+import { JwtService } from './auth/JwtService';
+import { BcryptPasswordService } from './auth/BcryptPasswordService';
+import { PostgresAuthRepository } from './auth/PostgresAuthRepository';
+import { serverlessDeps } from './serverless-deps';
 
-const container: AwilixContainer<Cradle> = createContainer<Cradle>({
-  injectionMode: InjectionMode.CLASSIC,
-});
+const container = createContainer();
 
+// ── Pool singleton ────────────────────────────────────────────────────
 let _pool: Pool | null = null;
 
 function getPool(): Pool {
@@ -49,59 +31,35 @@ function getPool(): Pool {
   return _pool;
 }
 
-export function register(): AwilixContainer<Cradle> {
-  const deps = serverlessDeps;
+// ── Shared use case dependencies (DRY — Bijakcerdas pattern) ─────────
+const useCaseDependencies: ParameterOption = {
+  injectType: 'destructuring',
+  dependencies: [
+    { name: 'applicationEvent', concrete: serverlessDeps.applicationEvent },
+    { name: 'logger', concrete: serverlessDeps.logger },
+    { name: 'authRepository', internal: 'AuthRepository' },
+    { name: 'passwordService', internal: 'PasswordService' },
+    { name: 'jwtService', internal: 'JwtService' },
+  ],
+};
 
-  container.register({
-    jwtService: asClass(JwtService).singleton(),
-    passwordService: asClass(BcryptPasswordService).singleton(),
-    authRepository: asFunction(() => {
-      return new PostgresAuthRepository(getPool());
-    }).singleton(),
+// ── Register concrete instances ───────────────────────────────────────
+container.register([
+  { key: 'AuthRepository', Class: PostgresAuthRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
+]);
 
-    registerUserUseCase: asFunction(() => {
-      return new RegisterUserUseCase(
-        { applicationEvent: deps.applicationEvent, logger: deps.logger },
-        container.cradle.authRepository,
-        container.cradle.passwordService,
-      );
-    }).singleton(),
+container.register([
+  { key: 'JwtService', Class: JwtService },
+  { key: 'PasswordService', Class: BcryptPasswordService },
+]);
 
-    loginUserUseCase: asFunction(() => {
-      return new LoginUserUseCase(
-        { applicationEvent: deps.applicationEvent, logger: deps.logger },
-        container.cradle.authRepository,
-        container.cradle.passwordService,
-        container.cradle.jwtService,
-      );
-    }).singleton(),
+// ── Use cases (shared ParameterOption = DRY) ──────────────────────────
+container.register([
+  { key: 'RegisterUserUseCase', Class: RegisterUserUseCase, parameter: useCaseDependencies },
+  { key: 'LoginUserUseCase', Class: LoginUserUseCase, parameter: useCaseDependencies },
+  { key: 'LogoutUserUseCase', Class: LogoutUserUseCase, parameter: useCaseDependencies },
+  { key: 'RefreshTokenUseCase', Class: RefreshTokenUseCase, parameter: useCaseDependencies },
+  { key: 'GetCurrentUserUseCase', Class: GetCurrentUserUseCase, parameter: useCaseDependencies },
+]);
 
-    logoutUserUseCase: asFunction(() => {
-      return new LogoutUserUseCase(
-        { applicationEvent: deps.applicationEvent, logger: deps.logger },
-        container.cradle.authRepository,
-        container.cradle.jwtService,
-      );
-    }).singleton(),
-
-    refreshTokenUseCase: asFunction(() => {
-      return new RefreshTokenUseCase(
-        { applicationEvent: deps.applicationEvent, logger: deps.logger },
-        container.cradle.authRepository,
-        container.cradle.jwtService,
-      );
-    }).singleton(),
-
-    getCurrentUserUseCase: asFunction(() => {
-      return new GetCurrentUserUseCase(
-        { applicationEvent: deps.applicationEvent, logger: deps.logger },
-        container.cradle.authRepository,
-        container.cradle.jwtService,
-      );
-    }).singleton(),
-  });
-
-  return container;
-}
-
-export default container;
+export { container, getPool };

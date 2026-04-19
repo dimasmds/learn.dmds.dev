@@ -3,10 +3,8 @@ import {
   InvariantError,
   AuthenticationError,
 } from '@kopiketuk/framework';
-import type { UseCaseDependencies } from '@kopiketuk/framework';
-import type { AuthRepositoryInterface } from '../../../domains/auth/repositories/AuthRepositoryInterface';
-import type { PasswordServiceInterface, JwtServiceInterface } from '../../../domains/auth/services/AuthServiceInterface';
 import { AuthSession } from '../../../domains/auth/entities/AuthSession';
+import type { LearnDmdsUseCaseDependencies } from '../base/dependencies';
 
 export interface LoginUserInput {
   email: string;
@@ -28,13 +26,12 @@ export class LoginUserUseCase extends ApplicationUseCase<
   LoginUserInput,
   LoginUserOutput
 > {
-  constructor(
-    dependencies: UseCaseDependencies,
-    private authRepository: AuthRepositoryInterface,
-    private passwordService: PasswordServiceInterface,
-    private jwtService: JwtServiceInterface,
-  ) {
-    super(dependencies);
+  private readonly authRepository = this.deps.authRepository;
+  private readonly passwordService = this.deps.passwordService;
+  private readonly jwtService = this.deps.jwtService;
+
+  constructor(private deps: LearnDmdsUseCaseDependencies) {
+    super(deps);
     this.setLoggingRestriction({ input: true });
   }
 
@@ -43,7 +40,6 @@ export class LoginUserUseCase extends ApplicationUseCase<
       throw new InvariantError('LOGIN_USER.MISSING_CREDENTIALS');
     }
 
-    // Find user by email
     const user = await this.authRepository.findUserByEmail(
       payload.email.trim().toLowerCase(),
     );
@@ -52,7 +48,6 @@ export class LoginUserUseCase extends ApplicationUseCase<
       throw new AuthenticationError('LOGIN_USER.INVALID_CREDENTIALS');
     }
 
-    // Verify password
     const isValid = await this.passwordService.compare(
       payload.password,
       user.passwordHash,
@@ -62,20 +57,17 @@ export class LoginUserUseCase extends ApplicationUseCase<
       throw new AuthenticationError('LOGIN_USER.INVALID_CREDENTIALS');
     }
 
-    // Generate tokens
     const tokens = this.jwtService.generateTokenPair({
       userId: user.id,
       username: user.username,
     });
 
-    // Create session
     const session = AuthSession.create({
       userId: user.id,
       refreshTokenHash: this.jwtService.hashRefreshToken(tokens.refreshToken),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    // Enforce max 5 active sessions
     const activeCount = await this.authRepository.countActiveSessions(user.id);
     if (activeCount >= 5) {
       await this.authRepository.deleteUserSessions(user.id);

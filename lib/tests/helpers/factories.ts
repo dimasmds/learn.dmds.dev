@@ -1,9 +1,8 @@
-import type { UseCaseDependencies } from '@kopiketuk/framework';
 import { vi } from 'vitest';
 
 import type { AuthRepositoryInterface } from '@/lib/domains/auth/repositories/AuthRepositoryInterface';
-import type { PasswordServiceInterface } from '@/lib/domains/auth/services/AuthServiceInterface';
-import type { JwtServiceInterface } from '@/lib/domains/auth/services/AuthServiceInterface';
+import type { PasswordServiceInterface, JwtServiceInterface } from '@/lib/domains/auth/services/AuthServiceInterface';
+import type { LearnDmdsUseCaseDependencies } from '@/lib/applications/usecases/base/dependencies';
 
 export function createMockAuthRepository(
   overrides: Partial<AuthRepositoryInterface> = {},
@@ -47,7 +46,15 @@ export function createMockJwtService(
   };
 }
 
-export function createMockUseCaseDependencies(): UseCaseDependencies {
+/**
+ * DRY: Create fully mocked LearnDmdsUseCaseDependencies.
+ * Each use case test only needs to override what it uses.
+ */
+export function createMockUseCaseDependencies(options: {
+  authRepository?: AuthRepositoryInterface;
+  passwordService?: PasswordServiceInterface;
+  jwtService?: JwtServiceInterface;
+} = {}): LearnDmdsUseCaseDependencies {
   return {
     logger: {
       writeError: vi.fn().mockResolvedValue(undefined),
@@ -55,8 +62,11 @@ export function createMockUseCaseDependencies(): UseCaseDependencies {
       writeEvent: vi.fn().mockResolvedValue(undefined),
     },
     applicationEvent: {
-      raise: vi.fn(),
+      raise: vi.fn().mockResolvedValue(undefined),
       subscribe: vi.fn(),
     },
+    authRepository: options.authRepository ?? createMockAuthRepository(),
+    passwordService: options.passwordService ?? createMockPasswordService(),
+    jwtService: options.jwtService ?? createMockJwtService(),
   };
 }

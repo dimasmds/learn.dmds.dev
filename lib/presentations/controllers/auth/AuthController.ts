@@ -1,17 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { InvariantError, AuthenticationError } from '@kopiketuk/framework';
-import type { AwilixContainer } from 'awilix';
-import type { Cradle } from '../../../infrastructures/container';
+
+import type { RegisterUserUseCase } from '@/lib/applications/usecases/auth/RegisterUserUseCase';
+import type { LoginUserUseCase } from '@/lib/applications/usecases/auth/LoginUserUseCase';
+import type { LogoutUserUseCase } from '@/lib/applications/usecases/auth/LogoutUserUseCase';
+import type { RefreshTokenUseCase } from '@/lib/applications/usecases/auth/RefreshTokenUseCase';
+import type { GetCurrentUserUseCase } from '@/lib/applications/usecases/auth/GetCurrentUserUseCase';
+import { container } from '@/lib/infrastructures/container';
 
 export class AuthController {
-  constructor(private container: AwilixContainer<Cradle>) {}
-
-  async register(request: NextRequest): Promise<NextResponse> {
+  static register = async (request: NextRequest): Promise<NextResponse> => {
     try {
       const body = await request.json();
       const { username, email, password, confirmPassword } = body;
 
-      const useCase = this.container.cradle.registerUserUseCase;
+      const useCase = container.getInstance('RegisterUserUseCase') as RegisterUserUseCase;
       const result = await useCase.execute({ username, email, password, confirmPassword });
 
       return NextResponse.json(
@@ -30,16 +34,16 @@ export class AuthController {
         { status: 201 },
       );
     } catch (error) {
-      return this.handleError(error);
+      return AuthController.handleError(error);
     }
-  }
+  };
 
-  async login(request: NextRequest): Promise<NextResponse> {
+  static login = async (request: NextRequest): Promise<NextResponse> => {
     try {
       const body = await request.json();
       const { email, password } = body;
 
-      const useCase = this.container.cradle.loginUserUseCase;
+      const useCase = container.getInstance('LoginUserUseCase') as LoginUserUseCase;
       const result = await useCase.execute({ email, password });
 
       const response = NextResponse.json(
@@ -63,15 +67,15 @@ export class AuthController {
 
       return response;
     } catch (error) {
-      return this.handleError(error);
+      return AuthController.handleError(error);
     }
-  }
+  };
 
-  async logout(request: NextRequest): Promise<NextResponse> {
+  static logout = async (request: NextRequest): Promise<NextResponse> => {
     try {
       const refreshToken = request.cookies.get('refresh_token')?.value;
 
-      const useCase = this.container.cradle.logoutUserUseCase;
+      const useCase = container.getInstance('LogoutUserUseCase') as LogoutUserUseCase;
       await useCase.execute({ refreshToken: refreshToken || '' });
 
       const response = NextResponse.json(
@@ -89,11 +93,11 @@ export class AuthController {
 
       return response;
     } catch (error) {
-      return this.handleError(error);
+      return AuthController.handleError(error);
     }
-  }
+  };
 
-  async refresh(request: NextRequest): Promise<NextResponse> {
+  static refresh = async (request: NextRequest): Promise<NextResponse> => {
     try {
       const refreshToken = request.cookies.get('refresh_token')?.value;
 
@@ -104,7 +108,7 @@ export class AuthController {
         );
       }
 
-      const useCase = this.container.cradle.refreshTokenUseCase;
+      const useCase = container.getInstance('RefreshTokenUseCase') as RefreshTokenUseCase;
       const result = await useCase.execute({ refreshToken });
 
       const response = NextResponse.json(
@@ -139,11 +143,11 @@ export class AuthController {
         });
         return response;
       }
-      return this.handleError(error);
+      return AuthController.handleError(error);
     }
-  }
+  };
 
-  async me(request: NextRequest): Promise<NextResponse> {
+  static me = async (request: NextRequest): Promise<NextResponse> => {
     try {
       const authHeader = request.headers.get('authorization');
       const accessToken = authHeader?.replace('Bearer ', '');
@@ -155,7 +159,7 @@ export class AuthController {
         );
       }
 
-      const useCase = this.container.cradle.getCurrentUserUseCase;
+      const useCase = container.getInstance('GetCurrentUserUseCase') as GetCurrentUserUseCase;
       const result = await useCase.execute({ accessToken });
 
       return NextResponse.json(
@@ -174,11 +178,11 @@ export class AuthController {
         { status: 200 },
       );
     } catch (error) {
-      return this.handleError(error);
+      return AuthController.handleError(error);
     }
-  }
+  };
 
-  private handleError(error: unknown): NextResponse {
+  private static handleError(error: unknown): NextResponse {
     if (error instanceof InvariantError) {
       return NextResponse.json(
         { status: 'fail', message: error.message },

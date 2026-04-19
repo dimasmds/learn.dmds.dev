@@ -1,61 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InvariantError, AuthenticationError } from '@kopiketuk/framework';
 import { LoginUserUseCase } from '../LoginUserUseCase';
-import type { AuthRepositoryInterface } from '../../../../domains/auth/repositories/AuthRepositoryInterface';
-import type { PasswordServiceInterface, JwtServiceInterface } from '../../../../domains/auth/services/AuthServiceInterface';
-import { User } from '../../../../domains/auth/entities/User';
-
-function createMockAuthRepository(overrides: Partial<AuthRepositoryInterface> = {}): AuthRepositoryInterface {
-  return {
-    createUser: vi.fn().mockResolvedValue(undefined),
-    findUserByEmail: vi.fn().mockResolvedValue(null),
-    findUserByUsername: vi.fn().mockResolvedValue(null),
-    findUserById: vi.fn().mockResolvedValue(null),
-    createSession: vi.fn().mockResolvedValue(undefined),
-    findSessionByRefreshToken: vi.fn().mockResolvedValue(null),
-    deleteSession: vi.fn().mockResolvedValue(undefined),
-    deleteUserSessions: vi.fn().mockResolvedValue(undefined),
-    countActiveSessions: vi.fn().mockResolvedValue(0),
-    ...overrides,
-  };
-}
-
-function createMockPasswordService(overrides: Partial<PasswordServiceInterface> = {}): PasswordServiceInterface {
-  return {
-    hash: vi.fn().mockResolvedValue('$2a$10$hashed'),
-    compare: vi.fn().mockResolvedValue(true),
-    ...overrides,
-  };
-}
-
-function createMockJwtService(): JwtServiceInterface {
-  return {
-    generateTokenPair: vi.fn().mockReturnValue({
-      accessToken: 'access.token.here',
-      refreshToken: 'refresh.token.here',
-    }),
-    verifyAccessToken: vi.fn().mockReturnValue({ userId: 'user-id', username: 'johndoe' }),
-    verifyRefreshToken: vi.fn().mockReturnValue({ userId: 'user-id', username: 'johndoe' }),
-    hashRefreshToken: vi.fn().mockReturnValue('hashed-refresh-token'),
-  };
-}
-
-function createMockDependencies() {
-  return {
-    applicationEvent: { raise: vi.fn().mockResolvedValue(undefined), subscribe: vi.fn() },
-    logger: {
-      writeError: vi.fn().mockResolvedValue(undefined),
-      writeClientError: vi.fn().mockResolvedValue(undefined),
-      writeEvent: vi.fn().mockResolvedValue(undefined),
-    },
-  };
-}
+import { User } from '@/lib/domains/auth/entities/User';
+import { createMockUseCaseDependencies } from '@/lib/tests/helpers/factories';
 
 describe('LoginUserUseCase', () => {
-  let mockRepository: AuthRepositoryInterface;
-  let mockPasswordService: PasswordServiceInterface;
-  let mockJwtService: JwtServiceInterface;
-  let mockDependencies: ReturnType<typeof createMockDependencies>;
   let useCase: LoginUserUseCase;
 
   const mockUser = User.create({
@@ -65,64 +14,76 @@ describe('LoginUserUseCase', () => {
     displayName: 'John Doe',
   });
 
-  beforeEach(() => {
-    mockRepository = createMockAuthRepository({
-      findUserByEmail: vi.fn().mockResolvedValue(mockUser),
+  function createDeps(overrides: Record<string, any> = {}) {
+    const deps = createMockUseCaseDependencies({
+      authRepository: overrides.authRepository,
+      passwordService: overrides.passwordService,
+      jwtService: overrides.jwtService,
     });
-    mockPasswordService = createMockPasswordService();
-    mockJwtService = createMockJwtService();
-    mockDependencies = createMockDependencies();
-    useCase = new LoginUserUseCase(mockDependencies, mockRepository, mockPasswordService, mockJwtService);
-  });
+    // Default: email lookup returns mockUser
+    if (!overrides.authRepository) {
+      (deps.authRepository.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+    }
+    return deps;
+  }
 
   describe('happy path', () => {
     it('should login successfully and return tokens with user data', async () => {
-      const result = await useCase.execute({
-        email: 'john@example.com',
-        password: 'SecurePass123',
-      });
+      const deps = createDeps();
+      useCase = new LoginUserUseCase(deps);
+      const result = await useCase.execute({ email: 'john@example.com', password: 'SecurePass123' });
 
-      expect(result.accessToken).toBe('access.token.here');
-      expect(result.refreshToken).toBe('refresh.token.here');
+      expect(result.accessToken).toBe('mock-access-token');
+      expect(result.refreshToken).toBe('mock-refresh-token');
       expect(result.user.username).toBe('johndoe');
       expect(result.user.email).toBe('john@example.com');
     });
 
     it('should verify password against stored hash', async () => {
+      const deps = createDeps();
+      useCase = new LoginUserUseCase(deps);
       await useCase.execute({ email: 'john@example.com', password: 'SecurePass123' });
 
-      expect(mockPasswordService.compare).toHaveBeenCalledWith('SecurePass123', mockUser.passwordHash);
+      expect(deps.passwordService.compare).toHaveBeenCalledWith('SecurePass123', mockUser.passwordHash);
     });
 
     it('should generate token pair', async () => {
+      const deps = createDeps();
+      useCase = new LoginUserUseCase(deps);
       await useCase.execute({ email: 'john@example.com', password: 'SecurePass123' });
 
-      expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith({
+      expect(deps.jwtService.generateTokenPair).toHaveBeenCalledWith({
         userId: mockUser.id,
         username: 'johndoe',
       });
     });
 
     it('should create a new session', async () => {
+      const deps = createDeps();
+      useCase = new LoginUserUseCase(deps);
       await useCase.execute({ email: 'john@example.com', password: 'SecurePass123' });
 
-      expect(mockRepository.createSession).toHaveBeenCalledTimes(1);
+      expect(deps.authRepository.createSession).toHaveBeenCalledTimes(1);
     });
 
     it('should trim and lowercase email before lookup', async () => {
+      const deps = createDeps();
+      useCase = new LoginUserUseCase(deps);
       await useCase.execute({ email: '  JOHN@EXAMPLE.COM  ', password: 'SecurePass123' });
 
-      expect(mockRepository.findUserByEmail).toHaveBeenCalledWith('john@example.com');
+      expect(deps.authRepository.findUserByEmail).toHaveBeenCalledWith('john@example.com');
     });
   });
 
   describe('validation', () => {
     it('should throw InvariantError when email or password is missing', async () => {
+      useCase = new LoginUserUseCase(createDeps());
       await expect(useCase.execute({ email: '', password: 'pass' }))
         .rejects.toThrow('LOGIN_USER.MISSING_CREDENTIALS');
     });
 
     it('should throw InvariantError when password is missing', async () => {
+      useCase = new LoginUserUseCase(createDeps());
       await expect(useCase.execute({ email: 'john@example.com', password: '' }))
         .rejects.toThrow('LOGIN_USER.MISSING_CREDENTIALS');
     });
@@ -130,61 +91,54 @@ describe('LoginUserUseCase', () => {
 
   describe('authentication failures', () => {
     it('should throw AuthenticationError when user not found', async () => {
-      mockRepository = createMockAuthRepository({
-        findUserByEmail: vi.fn().mockResolvedValue(null),
-      });
-      useCase = new LoginUserUseCase(mockDependencies, mockRepository, mockPasswordService, mockJwtService);
+      const deps = createMockUseCaseDependencies();
+      (deps.authRepository.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      useCase = new LoginUserUseCase(deps);
 
       await expect(useCase.execute({ email: 'noone@example.com', password: 'pass' }))
         .rejects.toThrow('LOGIN_USER.INVALID_CREDENTIALS');
     });
 
     it('should throw AuthenticationError when password is wrong', async () => {
-      mockPasswordService = createMockPasswordService({
-        compare: vi.fn().mockResolvedValue(false),
-      });
-      useCase = new LoginUserUseCase(mockDependencies, mockRepository, mockPasswordService, mockJwtService);
+      const deps = createDeps();
+      (deps.passwordService.compare as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+      useCase = new LoginUserUseCase(deps);
 
       await expect(useCase.execute({ email: 'john@example.com', password: 'wrongpass' }))
         .rejects.toThrow('LOGIN_USER.INVALID_CREDENTIALS');
     });
 
     it('should not create session when authentication fails', async () => {
-      mockRepository = createMockAuthRepository({
-        findUserByEmail: vi.fn().mockResolvedValue(null),
-      });
-      useCase = new LoginUserUseCase(mockDependencies, mockRepository, mockPasswordService, mockJwtService);
+      const deps = createMockUseCaseDependencies();
+      (deps.authRepository.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      useCase = new LoginUserUseCase(deps);
 
       await expect(useCase.execute({ email: 'noone@example.com', password: 'pass' }))
         .rejects.toThrow();
 
-      expect(mockRepository.createSession).not.toHaveBeenCalled();
+      expect(deps.authRepository.createSession).not.toHaveBeenCalled();
     });
   });
 
   describe('session management', () => {
     it('should delete all sessions when user has 5+ active sessions', async () => {
-      mockRepository = createMockAuthRepository({
-        findUserByEmail: vi.fn().mockResolvedValue(mockUser),
-        countActiveSessions: vi.fn().mockResolvedValue(5),
-      });
-      useCase = new LoginUserUseCase(mockDependencies, mockRepository, mockPasswordService, mockJwtService);
+      const deps = createDeps();
+      (deps.authRepository.countActiveSessions as ReturnType<typeof vi.fn>).mockResolvedValue(5);
+      useCase = new LoginUserUseCase(deps);
 
       await useCase.execute({ email: 'john@example.com', password: 'SecurePass123' });
 
-      expect(mockRepository.deleteUserSessions).toHaveBeenCalledWith(mockUser.id);
+      expect(deps.authRepository.deleteUserSessions).toHaveBeenCalledWith(mockUser.id);
     });
 
     it('should NOT delete sessions when user has fewer than 5 active sessions', async () => {
-      mockRepository = createMockAuthRepository({
-        findUserByEmail: vi.fn().mockResolvedValue(mockUser),
-        countActiveSessions: vi.fn().mockResolvedValue(4),
-      });
-      useCase = new LoginUserUseCase(mockDependencies, mockRepository, mockPasswordService, mockJwtService);
+      const deps = createDeps();
+      (deps.authRepository.countActiveSessions as ReturnType<typeof vi.fn>).mockResolvedValue(4);
+      useCase = new LoginUserUseCase(deps);
 
       await useCase.execute({ email: 'john@example.com', password: 'SecurePass123' });
 
-      expect(mockRepository.deleteUserSessions).not.toHaveBeenCalled();
+      expect(deps.authRepository.deleteUserSessions).not.toHaveBeenCalled();
     });
   });
 });

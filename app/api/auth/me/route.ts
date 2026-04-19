@@ -1,9 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { register } from '@/lib/infrastructures/container';
+import { NextRequest } from 'next/server';
 import { AuthController } from '@/lib/presentations/controllers/auth/AuthController';
 
-const controller = new AuthController(register());
-
 export async function GET(request: NextRequest) {
-  return controller.me(request);
+  return AuthController.me(request);
 }

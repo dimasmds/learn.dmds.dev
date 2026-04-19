@@ -23,7 +23,7 @@ export function createMockRepository<T extends Record<string, unknown>>(
 /**
  * Creates a mock logger with standard log-level methods stubbed as vi.fn().
  */
-export function createMockLogger() {
+export function createMockLogger(): Record<string, ReturnType<typeof vi.fn>> {
   return {
     debug: vi.fn(),
     info: vi.fn(),

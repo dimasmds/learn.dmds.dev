@@ -2,41 +2,20 @@
 
 import dynamic from 'next/dynamic';
 
-// SSR-safe lazy loaders for Rive animations
+// These are fully client-only — they will NOT render during SSR at all.
+// The server sends nothing for these, and the client fills them in after mount.
 
 export const LazyStreakFire = dynamic(
   () => import('./StreakFire'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center animate-pulse bg-orange-100 rounded-full"
-        style={{ width: 80, height: 80 }}>
-        🔥
-      </div>
-    ),
-  }
+  { ssr: false }
 );
 
 export const LazyXPStar = dynamic(
   () => import('./XPStar'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center animate-pulse bg-yellow-100 rounded-full"
-        style={{ width: 60, height: 60 }}>
-        ⭐
-      </div>
-    ),
-  }
+  { ssr: false }
 );
 
 export const LazyRiveAnimation = dynamic(
   () => import('./RiveAnimation'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="animate-pulse bg-gray-100 rounded-[var(--radius-common)]"
-        style={{ width: 120, height: 120 }} />
-    ),
-  }
+  { ssr: false }
 );

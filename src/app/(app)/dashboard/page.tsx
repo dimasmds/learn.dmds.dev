@@ -1,8 +1,16 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { LazyStreakFire, LazyXPStar } from '@/components/animations/LazyRive';
 
 export default function DashboardPage() {
   const streak = 0;
   const level = 0;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div>
@@ -16,7 +24,13 @@ export default function DashboardPage() {
         <div className="rounded-[var(--radius-common)] border-2 border-black bg-secondary-background p-6 shadow-[var(--shadow-x)_var(--shadow-y)_0_0_var(--color-shadow)]">
           <h2 className="text-lg font-semibold">Progress Belajar</h2>
           <div className="mt-3 flex items-center gap-3">
-            <LazyXPStar level={level} size={50} />
+            {mounted ? (
+              <LazyXPStar level={level} size={50} />
+            ) : (
+              <div className="flex items-center justify-center text-3xl" style={{ width: 50, height: 50 }}>
+                ⭐
+              </div>
+            )}
             <div>
               <p className="text-3xl font-bold text-main">0%</p>
               <p className="text-sm text-foreground/60">Belum dimulai</p>
@@ -28,7 +42,13 @@ export default function DashboardPage() {
         <div className="rounded-[var(--radius-common)] border-2 border-black bg-secondary-background p-6 shadow-[var(--shadow-x)_var(--shadow-y)_0_0_var(--color-shadow)]">
           <h2 className="text-lg font-semibold">Streak</h2>
           <div className="mt-3 flex items-center gap-3">
-            <LazyStreakFire streak={streak} size={60} />
+            {mounted ? (
+              <LazyStreakFire streak={streak} size={60} />
+            ) : (
+              <div className="flex items-center justify-center text-3xl" style={{ width: 60, height: 60 }}>
+                💨
+              </div>
+            )}
             <div>
               <p className="text-3xl font-bold text-main">{streak}</p>
               <p className="text-sm text-foreground/60">

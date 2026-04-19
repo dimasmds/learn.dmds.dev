@@ -1,4 +1,4 @@
-import type { Pool, QueryResult } from 'pg';
+import type { Pool } from 'pg';
 import type { AuthRepositoryInterface } from '../../domains/auth/repositories/AuthRepositoryInterface';
 import { User, type UserProps } from '../../domains/auth/entities/User';
 import { AuthSession, type AuthSessionProps } from '../../domains/auth/entities/AuthSession';
@@ -19,6 +19,10 @@ interface SessionRow {
   refresh_token_hash: string;
   expires_at: Date;
   created_at: Date;
+}
+
+interface CountRow {
+  count: string;
 }
 
 export class PostgresAuthRepository implements AuthRepositoryInterface {
@@ -101,7 +105,7 @@ export class PostgresAuthRepository implements AuthRepositoryInterface {
   }
 
   async countActiveSessions(userId: string): Promise<number> {
-    const result = await this.pool.query<QueryResult<{ count: string }>>(
+    const result = await this.pool.query<CountRow>(
       'SELECT COUNT(*) as count FROM auth_sessions WHERE user_id = $1 AND expires_at > NOW()',
       [userId],
     );

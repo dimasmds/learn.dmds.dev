@@ -14,6 +14,9 @@ importers:
       '@kopiketuk/framework':
         specifier: github:kopiketuk/framework
         version: https://codeload.github.com/kopiketuk/framework/tar.gz/f95b16c6ea3ae9ad7e12ffc9b7f2b80309a83047(winston@3.19.0)
+      '@rive-app/react-webgl2':
+        specifier: ^4.28.1
+        version: 4.28.1(react@19.2.4)
       awilix:
         specifier: ^13.0.3
         version: 13.0.3
@@ -783,6 +786,14 @@ packages:
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
+
+  '@rive-app/react-webgl2@4.28.1':
+    resolution: {integrity: sha512-hGxhN84K8hOfgiLitQiRMGdDbEL34TijFZCiOW8ShxBpKWVu2mGtjw37MCWAznBaXGCu5+bFZ42SzOfL1onxDQ==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0
+
+  '@rive-app/webgl2@2.37.2':
+    resolution: {integrity: sha512-fQFBGDcjOGNIyhW33lBdamj15oVJTCLHsKBKGolXFjHziFj+Fw0kKd3pRekZNkyfZ0IUQwoS/P2bnF+Vz98CrQ==}
 
   '@rolldown/binding-android-arm64@1.0.0-rc.15':
     resolution: {integrity: sha512-YYe6aWruPZDtHNpwu7+qAHEMbQ/yRl6atqb/AhznLTnD3UY99Q1jE7ihLSahNWkF4EqRPVC4SiR4O0UkLK02tA==}
@@ -4425,6 +4436,13 @@ snapshots:
   '@oxc-project/types@0.124.0': {}
 
   '@polka/url@1.0.0-next.29': {}
+
+  '@rive-app/react-webgl2@4.28.1(react@19.2.4)':
+    dependencies:
+      '@rive-app/webgl2': 2.37.2
+      react: 19.2.4
+
+  '@rive-app/webgl2@2.37.2': {}
 
   '@rolldown/binding-android-arm64@1.0.0-rc.15':
     optional: true

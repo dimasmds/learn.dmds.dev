@@ -26,13 +26,11 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              data-active={isActive ? "true" : undefined}
               className={`flex items-center gap-3 rounded-[var(--radius-common)] border-2 border-black px-4 py-3 text-sm font-semibold transition-transform ${
                 isActive
                   ? "bg-main text-main-foreground shadow-[var(--shadow-x)_var(--shadow-y)_0_0_var(--color-shadow)]"
                   : "bg-secondary-background text-foreground shadow-[var(--shadow-x)_var(--shadow-y)_0_0_var(--color-shadow)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_var(--color-shadow)]"
               }`}
-              suppressHydrationWarning
             >
               <item.icon className="h-5 w-5 shrink-0" />
               <span>{item.label}</span>

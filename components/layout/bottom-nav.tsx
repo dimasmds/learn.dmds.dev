@@ -25,7 +25,6 @@ export function BottomNav() {
                 ? "bg-main text-main-foreground"
                 : "text-foreground hover:bg-background"
             }`}
-            suppressHydrationWarning
           >
             <span className="text-lg">{tab.emoji}</span>
             <span>{tab.label}</span>

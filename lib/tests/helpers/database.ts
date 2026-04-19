@@ -1,8 +1,10 @@
 import { Pool, type PoolConfig } from 'pg';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 /**
  * Database test context for integration tests
- * Manages database connection and cleanup for tests
+ * Manages database connection, schema setup, and cleanup
  * Following Bijakcerdas pattern
  */
 export class DatabaseTestContext {
@@ -36,6 +38,10 @@ export class DatabaseTestContext {
     // Verify connection
     const client = await this._pool.connect();
     client.release();
+
+    // Run schema migration
+    const schema = readFileSync(join(process.cwd(), 'scripts', 'test-schema.sql'), 'utf-8');
+    await this._pool.query(schema);
   }
 
   async teardown(): Promise<void> {

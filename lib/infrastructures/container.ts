@@ -36,39 +36,13 @@ const container: AwilixContainer<Cradle> = createContainer<Cradle>({
 
 let _pool: Pool | null = null;
 
-function buildDatabaseConfig() {
-  const rawUrl = process.env.DATABASE_URL || '';
-  if (!rawUrl) return null;
-
-  // Supabase pooler port 6543 (transaction mode) doesn't support
-  // all operations needed for auth. Use direct connection port 5432 instead.
-  const match = rawUrl.match(/^postgresql?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
-  if (match) {
-    const [, user, password, host, _port, database] = match;
-    // Pooler host: aws-0-<region>.pooler.supabase.com → extract ref from user (postgres.<ref>)
-    // Direct host: db.<ref>.supabase.co
-    const isPooler = host.includes('pooler.supabase.com');
-    const userRef = user.includes('.') ? user.split('.')[1] : null;
-    return {
-      host: isPooler && userRef ? `db.${userRef}.supabase.co` : host,
-      port: isPooler ? 5432 : parseInt(_port, 10),
-      database,
-      user: isPooler ? 'postgres' : user, // direct connection uses 'postgres', not 'postgres.<ref>'
-      password,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    };
-  }
-
-  // Fallback: use connectionString directly
-  return { connectionString: rawUrl, ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false };
-}
-
 function getPool(): Pool {
   if (!_pool) {
-    const config = buildDatabaseConfig();
-    if (!config) throw new Error('DATABASE_URL is not set');
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) throw new Error('DATABASE_URL is not set');
     _pool = new Pool({
-      ...config,
+      connectionString: dbUrl,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       max: 5,
     });
   }

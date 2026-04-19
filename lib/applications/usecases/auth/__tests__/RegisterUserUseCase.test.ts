@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InvariantError } from '@kopiketuk/framework';
 import { RegisterUserUseCase } from '../RegisterUserUseCase';
 import type { AuthRepositoryInterface } from '../../../../domains/auth/repositories/AuthRepositoryInterface';
+import type { PasswordServiceInterface } from '../../../../domains/auth/services/AuthServiceInterface';
 import type { User } from '../../../../domains/auth/entities/User';
 
 function createMockAuthRepository(): AuthRepositoryInterface {
@@ -10,6 +11,18 @@ function createMockAuthRepository(): AuthRepositoryInterface {
     findUserByEmail: vi.fn().mockResolvedValue(null),
     findUserByUsername: vi.fn().mockResolvedValue(null),
     findUserById: vi.fn().mockResolvedValue(null),
+    createSession: vi.fn(),
+    findSessionByRefreshToken: vi.fn(),
+    deleteSession: vi.fn(),
+    deleteUserSessions: vi.fn(),
+    countActiveSessions: vi.fn(),
+  };
+}
+
+function createMockPasswordService(): PasswordServiceInterface {
+  return {
+    hash: vi.fn().mockResolvedValue('bcrypt_hashed_password'),
+    compare: vi.fn().mockResolvedValue(true),
   };
 }
 
@@ -29,13 +42,15 @@ function createMockUseCaseDependencies() {
 
 describe('RegisterUserUseCase', () => {
   let mockRepository: AuthRepositoryInterface;
+  let mockPasswordService: PasswordServiceInterface;
   let mockDependencies: ReturnType<typeof createMockUseCaseDependencies>;
   let useCase: RegisterUserUseCase;
 
   beforeEach(() => {
     mockRepository = createMockAuthRepository();
+    mockPasswordService = createMockPasswordService();
     mockDependencies = createMockUseCaseDependencies();
-    useCase = new RegisterUserUseCase(mockDependencies, mockRepository);
+    useCase = new RegisterUserUseCase(mockDependencies, mockRepository, mockPasswordService);
   });
 
   const validInput = {
@@ -63,7 +78,7 @@ describe('RegisterUserUseCase', () => {
     const savedUser = (mockRepository.createUser as ReturnType<typeof vi.fn>).mock.calls[0][0] as User;
     expect(savedUser.username).toBe('johndoe');
     expect(savedUser.email).toBe('john@example.com');
-    expect(savedUser.passwordHash).toBe('hashed_SecurePass123');
+    expect(savedUser.passwordHash).toBe('bcrypt_hashed_password');
   });
 
   it('should check if email already exists before creating', async () => {
@@ -160,12 +175,14 @@ describe('RegisterUserUseCase', () => {
     }
   });
 
-  it('should hash the password before storing', async () => {
+  it('should hash the password using bcrypt before storing', async () => {
     await useCase.execute(validInput);
+
+    expect(mockPasswordService.hash).toHaveBeenCalledWith('SecurePass123');
 
     const savedUser = (mockRepository.createUser as ReturnType<typeof vi.fn>).mock.calls[0][0] as User;
     expect(savedUser.passwordHash).not.toBe(validInput.password);
-    expect(savedUser.passwordHash).toBe('hashed_SecurePass123');
+    expect(savedUser.passwordHash).toBe('bcrypt_hashed_password');
   });
 
   it('should NOT log input payload (contains plain text password)', async () => {

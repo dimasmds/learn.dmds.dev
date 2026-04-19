@@ -89,6 +89,10 @@ export class User extends Entity<string> {
     });
   }
 
+  static reconstitute(id: string, props: UserProps): User {
+    return new User(id, props);
+  }
+
   updateProfile(data: { displayName?: string }): User {
     const newProps: UserProps = {
       ...this.props,

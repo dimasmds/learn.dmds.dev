@@ -5,6 +5,7 @@ import {
 import type { UseCaseDependencies } from '@kopiketuk/framework';
 import { User } from '../../../domains/auth/entities/User';
 import type { AuthRepositoryInterface } from '../../../domains/auth/repositories/AuthRepositoryInterface';
+import type { PasswordServiceInterface } from '../../../domains/auth/services/AuthServiceInterface';
 
 export interface RegisterUserInput {
   username: string;
@@ -26,13 +27,16 @@ export class RegisterUserUseCase extends ApplicationUseCase<
   RegisterUserOutput
 > {
   private authRepository: AuthRepositoryInterface;
+  private passwordService: PasswordServiceInterface;
 
   constructor(
     dependencies: UseCaseDependencies,
     authRepository: AuthRepositoryInterface,
+    passwordService: PasswordServiceInterface,
   ) {
     super(dependencies);
     this.authRepository = authRepository;
+    this.passwordService = passwordService;
     // Jangan log input — mengandung password plain text
     this.setLoggingRestriction({ input: true });
   }
@@ -73,8 +77,8 @@ export class RegisterUserUseCase extends ApplicationUseCase<
       throw new InvariantError('REGISTER_USER.USERNAME_ALREADY_EXISTS');
     }
 
-    // Hash password (stub for now — in real app, use bcrypt)
-    const passwordHash = `hashed_${payload.password}`;
+    // Hash password using real bcrypt
+    const passwordHash = await this.passwordService.hash(payload.password);
 
     // Create user entity
     const user = User.create({

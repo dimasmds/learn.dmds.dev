@@ -15,7 +15,6 @@
   "dependencies": {
     "@base-ui/react": "^1.4.0",
     "@kopiketuk/framework": "github:kopiketuk/framework",
-    "@rive-app/react-webgl2": "^4.28.1",
     "awilix": "^13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

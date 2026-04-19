@@ -1,11 +1,12 @@
 import { Pool, type PoolConfig } from 'pg';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 /**
  * Database test context for integration tests
- * Manages database connection, schema setup, and cleanup
+ * Manages database connection and cleanup
  * Following Bijakcerdas pattern
+ *
+ * NOTE: Migrations must be run BEFORE tests via `pnpm db:migrate:test up`
+ * This class only handles connection and data cleanup
  */
 export class DatabaseTestContext {
   private _pool: Pool | null = null;
@@ -19,7 +20,8 @@ export class DatabaseTestContext {
 
   async setup(): Promise<void> {
     const connectionString = process.env.DATABASE_URL_TEST
-      || 'postgresql://postgres:postgres@localhost:5432/learn_dmds_test';
+      || process.env.DATABASE_URL
+      || 'postgresql://postgres:postgres@localhost:5433/learn_dmds_test';
 
     const config: PoolConfig = {
       connectionString,
@@ -38,10 +40,6 @@ export class DatabaseTestContext {
     // Verify connection
     const client = await this._pool.connect();
     client.release();
-
-    // Run schema migration
-    const schema = readFileSync(join(process.cwd(), 'scripts', 'test-schema.sql'), 'utf-8');
-    await this._pool.query(schema);
   }
 
   async teardown(): Promise<void> {

@@ -14,7 +14,9 @@
     "test:ui": "vitest --ui",
     "test:db:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "test:db:down": "docker compose -f docker-compose.test.yml down -v",
-    "test:ci": "pnpm test:db:up && pnpm test:run && pnpm test:db:down"
+    "test:ci": "pnpm test:db:up && pnpm test:run && pnpm test:db:down",
+    "db:migrate": "node-pg-migrate",
+    "db:migrate:test": "node-pg-migrate --envPath=.env.test"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
@@ -50,6 +52,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "jsdom": "^29.0.2",
+    "node-pg-migrate": "^8.0.4",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.4"

@@ -10,7 +10,7 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
     user_id: {
       type: 'UUID',
       notNull: true,
-      references: { table: 'users', column: 'id', onDelete: 'CASCADE' },
+      references: 'users(id) ON DELETE CASCADE',
     },
     refresh_token_hash: { type: 'VARCHAR(255)', notNull: true },
     expires_at: { type: 'TIMESTAMPTZ', notNull: true },

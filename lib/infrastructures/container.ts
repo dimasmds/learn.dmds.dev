@@ -8,9 +8,18 @@ import { LogoutUserUseCase } from '../applications/usecases/auth/LogoutUserUseCa
 import { RefreshTokenUseCase } from '../applications/usecases/auth/RefreshTokenUseCase';
 import { GetCurrentUserUseCase } from '../applications/usecases/auth/GetCurrentUserUseCase';
 
+import { GetUnitsUseCase } from '../applications/usecases/learning/GetUnitsUseCase';
+import { GetUnitDetailUseCase } from '../applications/usecases/learning/GetUnitDetailUseCase';
+import { GetLessonDetailUseCase } from '../applications/usecases/learning/GetLessonDetailUseCase';
+
+import { GetUserProgressUseCase } from '../applications/usecases/progress/GetUserProgressUseCase';
+import { UpdateProgressUseCase } from '../applications/usecases/progress/UpdateProgressUseCase';
+
 import { JwtService } from './auth/JwtService';
 import { BcryptPasswordService } from './auth/BcryptPasswordService';
 import { PostgresAuthRepository } from './auth/PostgresAuthRepository';
+import { PostgresLearningRepository } from './learning/PostgresLearningRepository';
+import { PostgresProgressRepository } from './progress/PostgresProgressRepository';
 import { serverlessDeps } from './serverless-deps';
 
 const container = createContainer();
@@ -40,12 +49,16 @@ const useCaseDependencies: ParameterOption = {
     { name: 'authRepository', internal: 'AuthRepository' },
     { name: 'passwordService', internal: 'PasswordService' },
     { name: 'jwtService', internal: 'JwtService' },
+    { name: 'learningRepository', internal: 'LearningRepository' },
+    { name: 'progressRepository', internal: 'ProgressRepository' },
   ],
 };
 
 // ── Register concrete instances ───────────────────────────────────────
 container.register([
   { key: 'AuthRepository', Class: PostgresAuthRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
+  { key: 'LearningRepository', Class: PostgresLearningRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
+  { key: 'ProgressRepository', Class: PostgresProgressRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
 ]);
 
 container.register([
@@ -60,6 +73,11 @@ container.register([
   { key: 'LogoutUserUseCase', Class: LogoutUserUseCase, parameter: useCaseDependencies },
   { key: 'RefreshTokenUseCase', Class: RefreshTokenUseCase, parameter: useCaseDependencies },
   { key: 'GetCurrentUserUseCase', Class: GetCurrentUserUseCase, parameter: useCaseDependencies },
+  { key: 'GetUnitsUseCase', Class: GetUnitsUseCase, parameter: useCaseDependencies },
+  { key: 'GetUnitDetailUseCase', Class: GetUnitDetailUseCase, parameter: useCaseDependencies },
+  { key: 'GetLessonDetailUseCase', Class: GetLessonDetailUseCase, parameter: useCaseDependencies },
+  { key: 'GetUserProgressUseCase', Class: GetUserProgressUseCase, parameter: useCaseDependencies },
+  { key: 'UpdateProgressUseCase', Class: UpdateProgressUseCase, parameter: useCaseDependencies },
 ]);
 
 export { container, getPool };

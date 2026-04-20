@@ -45,4 +45,8 @@ export class Unit extends Entity<string> {
       id,
     );
   }
+
+  static reconstitute(id: string, props: UnitProps): Unit {
+    return new Unit(props, id);
+  }
 }

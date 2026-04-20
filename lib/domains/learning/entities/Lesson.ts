@@ -50,4 +50,8 @@ export class Lesson extends Entity<string> {
       id,
     );
   }
+
+  static reconstitute(id: string, props: LessonProps): Lesson {
+    return new Lesson(props, id);
+  }
 }

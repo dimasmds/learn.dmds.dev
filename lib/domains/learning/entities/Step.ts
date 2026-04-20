@@ -57,4 +57,8 @@ export class Step extends Entity<string> {
       id,
     );
   }
+
+  static reconstitute(id: string, props: StepProps): Step {
+    return new Step(props, id);
+  }
 }

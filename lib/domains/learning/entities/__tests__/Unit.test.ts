@@ -5,6 +5,7 @@ describe('Unit', () => {
   const validProps = {
     title: 'Unit 1: HTML Dasar',
     description: 'Belajar dasar-dasar HTML',
+    slug: 'unit-1-html-dasar',
     order: 1,
   };
 
@@ -13,6 +14,7 @@ describe('Unit', () => {
     expect(unit.id).toBeDefined();
     expect(unit.props.title).toBe('Unit 1: HTML Dasar');
     expect(unit.props.description).toBe('Belajar dasar-dasar HTML');
+    expect(unit.props.slug).toBe('unit-1-html-dasar');
     expect(unit.props.order).toBe(1);
     expect(unit.props.lessonIds).toEqual([]);
   });
@@ -25,6 +27,10 @@ describe('Unit', () => {
 
   it('should throw if title empty', () => {
     expect(() => Unit.create({ ...validProps, title: '' })).toThrow();
+  });
+
+  it('should throw if slug empty', () => {
+    expect(() => Unit.create({ ...validProps, slug: '' })).toThrow();
   });
 
   it('should throw if order negative', () => {

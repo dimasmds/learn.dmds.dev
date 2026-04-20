@@ -5,7 +5,9 @@ import type { CompletionStatusValue } from '../value-objects/CompletionStatus';
 export interface UserProgressProps {
   userId: string;
   stepId: string;
+  lessonId: string;
   status: CompletionStatusValue;
+  attempts: number;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +35,9 @@ export class UserProgress extends Entity<string> {
     if (!props.stepId || props.stepId.trim().length === 0) {
       throw new InvariantError('USER_PROGRESS.EMPTY_STEP_ID');
     }
+    if (!props.lessonId || props.lessonId.trim().length === 0) {
+      throw new InvariantError('USER_PROGRESS.EMPTY_LESSON_ID');
+    }
 
     const status = CompletionStatus.create(props.status);
 
@@ -42,7 +47,9 @@ export class UserProgress extends Entity<string> {
       {
         userId: props.userId,
         stepId: props.stepId,
+        lessonId: props.lessonId,
         status: status.value,
+        attempts: props.attempts ?? 0,
         completedAt,
         createdAt: new Date(),
         updatedAt: new Date(),

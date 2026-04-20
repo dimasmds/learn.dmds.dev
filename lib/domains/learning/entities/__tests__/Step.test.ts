@@ -5,9 +5,12 @@ describe('Step', () => {
   const validProps = {
     lessonId: 'lesson-1',
     type: 'theory' as const,
-    title: 'Pengenalan HTML',
     order: 1,
-    content: '<p>Ini konten</p>',
+    instruction: 'Belajar tentang heading HTML',
+    content: { body: 'konten teori' },
+    solution: {},
+    hints: [],
+    xpReward: 10,
   };
 
   it('should create step with valid props', () => {
@@ -15,7 +18,7 @@ describe('Step', () => {
     expect(step.id).toBeDefined();
     expect(step.props.lessonId).toBe('lesson-1');
     expect(step.props.type).toBe('theory');
-    expect(step.props.title).toBe('Pengenalan HTML');
+    expect(step.props.instruction).toBe('Belajar tentang heading HTML');
   });
 
   it('should create step with id', () => {
@@ -23,8 +26,8 @@ describe('Step', () => {
     expect(step.id).toBe('step-1');
   });
 
-  it('should throw if title empty', () => {
-    expect(() => Step.create({ ...validProps, title: '' })).toThrow();
+  it('should throw if instruction empty', () => {
+    expect(() => Step.create({ ...validProps, instruction: '' })).toThrow();
   });
 
   it('should throw if lessonId empty', () => {
@@ -37,5 +40,19 @@ describe('Step', () => {
 
   it('should throw if order negative', () => {
     expect(() => Step.create({ ...validProps, order: -1 })).toThrow();
+  });
+
+  it('should default content/solution/hints when not provided', () => {
+    const minimal = {
+      lessonId: 'lesson-1',
+      type: 'theory' as const,
+      order: 1,
+      instruction: 'Test instruction',
+    };
+    const step = Step.create(minimal);
+    expect(step.props.content).toEqual({});
+    expect(step.props.solution).toEqual({});
+    expect(step.props.hints).toEqual([]);
+    expect(step.props.xpReward).toBe(10);
   });
 });

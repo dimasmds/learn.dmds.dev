@@ -4,9 +4,12 @@ import { StepType } from '../value-objects/StepType';
 export interface StepProps {
   lessonId: string;
   type: string;
-  title: string;
   order: number;
-  content: string;
+  instruction: string;
+  content: Record<string, unknown>;
+  solution: Record<string, unknown>;
+  hints: string[];
+  xpReward: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,17 +33,24 @@ export class Step extends Entity<string> {
     if (!props.lessonId || props.lessonId.trim().length === 0) {
       throw new InvariantError('STEP.EMPTY_LESSON_ID');
     }
-    if (!props.title || props.title.trim().length === 0) {
-      throw new InvariantError('STEP.EMPTY_TITLE');
+    if (!props.instruction || props.instruction.trim().length === 0) {
+      throw new InvariantError('STEP.EMPTY_INSTRUCTION');
     }
     if (props.order < 0) {
       throw new InvariantError('STEP.INVALID_ORDER');
+    }
+    if (props.xpReward < 0) {
+      throw new InvariantError('STEP.INVALID_XP');
     }
     // Validate step type
     StepType.create(props.type);
     return new Step(
       {
         ...props,
+        content: props.content ?? {},
+        solution: props.solution ?? {},
+        hints: props.hints ?? [],
+        xpReward: props.xpReward ?? 10,
         createdAt: new Date(),
         updatedAt: new Date(),
       },

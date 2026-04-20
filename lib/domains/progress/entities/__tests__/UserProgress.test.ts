@@ -5,6 +5,7 @@ describe('UserProgress', () => {
   const validProps = {
     userId: 'user-1',
     stepId: 'step-1',
+    lessonId: 'lesson-1',
     status: 'NOT_STARTED' as const,
   };
 
@@ -13,8 +14,10 @@ describe('UserProgress', () => {
     expect(progress.id).toBeDefined();
     expect(progress.props.userId).toBe('user-1');
     expect(progress.props.stepId).toBe('step-1');
+    expect(progress.props.lessonId).toBe('lesson-1');
     expect(progress.props.status).toBe('NOT_STARTED');
     expect(progress.props.completedAt).toBeNull();
+    expect(progress.props.attempts).toBe(0);
   });
 
   it('should create with id', () => {
@@ -28,6 +31,10 @@ describe('UserProgress', () => {
 
   it('should throw if stepId empty', () => {
     expect(() => UserProgress.create({ ...validProps, stepId: '' })).toThrow();
+  });
+
+  it('should throw if lessonId empty', () => {
+    expect(() => UserProgress.create({ ...validProps, lessonId: '' })).toThrow();
   });
 
   it('should throw if status invalid', () => {

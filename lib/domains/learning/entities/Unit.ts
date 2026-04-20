@@ -3,6 +3,7 @@ import { Entity, InvariantError } from '@kopiketuk/framework';
 export interface UnitProps {
   title: string;
   description: string;
+  slug: string;
   order: number;
   lessonIds: string[];
   createdAt: Date;
@@ -27,6 +28,9 @@ export class Unit extends Entity<string> {
   ): Unit {
     if (!props.title || props.title.trim().length === 0) {
       throw new InvariantError('UNIT.EMPTY_TITLE');
+    }
+    if (!props.slug || props.slug.trim().length === 0) {
+      throw new InvariantError('UNIT.EMPTY_SLUG');
     }
     if (props.order < 0) {
       throw new InvariantError('UNIT.INVALID_ORDER');

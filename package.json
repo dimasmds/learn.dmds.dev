@@ -16,7 +16,8 @@
     "test:db:down": "docker compose -f docker-compose.test.yml down -v",
     "test:ci": "pnpm test:db:up && pnpm test:run && pnpm test:db:down",
     "db:migrate": "node-pg-migrate",
-    "db:migrate:test": "node-pg-migrate --envPath=.env.test"
+    "db:migrate:test": "node-pg-migrate --envPath=.env.test",
+    "db:seed:learning": "npx tsx scripts/seed/seed-learning.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

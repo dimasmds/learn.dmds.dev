@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/lib/presentations/stores/auth-store';
 import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register, isLoading } = useAuthStore();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -20,7 +21,8 @@ export default function RegisterPage() {
 
     try {
       await register(username, email, password, confirmPassword);
-      router.push('/dashboard');
+      const redirectTo = searchParams.get('redirect') || '/dashboard';
+      router.push(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registrasi gagal');
     }
@@ -29,7 +31,7 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="rounded-[var(--radius-common)] border-2 border-black bg-secondary-background p-8 shadow-[var(--radius-common)_var(--shadow-y)_0_0_var(--color-shadow)]">
+        <div className="rounded-[var(--radius-common)] border-2 border-black bg-secondary-background p-8 shadow-[var(--shadow-x)_var(--shadow-y)_0_0_var(--color-shadow)]">
           <h1 className="text-3xl font-bold">Daftar</h1>
           <p className="mt-2 text-foreground/60">
             Mulai perjalanan belajar coding-mu! 100% gratis.

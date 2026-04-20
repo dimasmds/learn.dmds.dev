@@ -61,7 +61,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        path: '/api/auth',
+        path: '/',
         maxAge: 7 * 24 * 60 * 60,
       });
 
@@ -87,7 +87,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        path: '/api/auth',
+        path: '/',
         maxAge: 0,
       });
 
@@ -123,7 +123,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        path: '/api/auth',
+        path: '/',
         maxAge: 7 * 24 * 60 * 60,
       });
 
@@ -138,7 +138,7 @@ export class AuthController {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          path: '/api/auth',
+          path: '/',
           maxAge: 0,
         });
         return response;

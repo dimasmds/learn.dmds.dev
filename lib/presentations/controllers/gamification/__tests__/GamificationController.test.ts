@@ -24,6 +24,12 @@ describeIntegration('GamificationController (integration)', () => {
     );
     const response = await GamificationController.getStats(request);
 
+    // Log the error body for debugging if not 200
+    if (response.status !== 200) {
+      const body = await response.json();
+      console.log('getStats error response:', JSON.stringify(body));
+    }
+
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.status).toBe('success');

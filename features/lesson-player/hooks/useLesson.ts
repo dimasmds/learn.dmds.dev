@@ -7,7 +7,7 @@ import type { Unit, UnitDetail, LessonDetail, ProgressItem } from '../types';
 // Fetch all units
 export function useUnits() {
   return useGetData<Unit[]>(['units'], () =>
-    fetch('/api/units').then(r => r.json()).then(d => d.data)
+    fetch('/api/units').then(r => r.json()).then(d => d.data.units ?? d.data)
   );
 }
 
@@ -28,7 +28,7 @@ export function useLessonDetail(lessonId: string) {
 // Fetch user progress
 export function useUserProgress(userId: string) {
   return useGetData<ProgressItem[]>(['progress', userId], () =>
-    fetch(`/api/progress?userId=${userId}`).then(r => r.json()).then(d => d.data)
+    fetch(`/api/progress?userId=${userId}`).then(r => r.json()).then(d => d.data.progress ?? d.data)
   );
 }
 

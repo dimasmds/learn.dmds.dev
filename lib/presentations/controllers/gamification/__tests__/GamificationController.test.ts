@@ -4,7 +4,7 @@ import { GamificationController } from '../GamificationController';
 
 const describeIntegration = process.env.DATABASE_URL ? describe : describe.skip;
 
-describeIntegration('GamificationController (integration)', () => {
+describe('GamificationController', () => {
   describe('getStats', () => {
     it('should return 400 when userId is missing', async () => {
       const request = new NextRequest(new URL('http://localhost/api/gamification/stats'));
@@ -14,33 +14,33 @@ describeIntegration('GamificationController (integration)', () => {
       const body = await response.json();
       expect(body.status).toBe('fail');
     });
+  });
+});
 
-    it('should return stats when userId is provided', async () => {
-      const request = new NextRequest(
-        new URL('http://localhost/api/gamification/stats?userId=user-1'),
-      );
-      const response = await GamificationController.getStats(request);
+describeIntegration('GamificationController (integration)', () => {
+  it('should return stats when userId is provided', async () => {
+    const request = new NextRequest(
+      new URL('http://localhost/api/gamification/stats?userId=user-1'),
+    );
+    const response = await GamificationController.getStats(request);
 
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body.status).toBe('success');
-      expect(body.data).toHaveProperty('totalXP');
-      expect(body.data).toHaveProperty('streak');
-      expect(body.data).toHaveProperty('badgeCount');
-      expect(body.data).toHaveProperty('recentTransactions');
-    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.status).toBe('success');
+    expect(body.data).toHaveProperty('totalXP');
+    expect(body.data).toHaveProperty('streak');
+    expect(body.data).toHaveProperty('badgeCount');
+    expect(body.data).toHaveProperty('recentTransactions');
   });
 
-  describe('getBadges', () => {
-    it('should return badges with empty userBadges when no userId', async () => {
-      const request = new NextRequest(new URL('http://localhost/api/gamification/badges'));
-      const response = await GamificationController.getBadges(request);
+  it('should return badges with empty userBadges when no userId', async () => {
+    const request = new NextRequest(new URL('http://localhost/api/gamification/badges'));
+    const response = await GamificationController.getBadges(request);
 
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body.status).toBe('success');
-      expect(body.data).toHaveProperty('allBadges');
-      expect(body.data).toHaveProperty('userBadges');
-    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.status).toBe('success');
+    expect(body.data).toHaveProperty('allBadges');
+    expect(body.data).toHaveProperty('userBadges');
   });
 });

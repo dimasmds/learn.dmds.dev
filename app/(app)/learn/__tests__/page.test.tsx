@@ -2,12 +2,12 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-// Mock the store
-vi.mock('@/lib/presentations/stores/learning-store', () => ({
-  useLearningStore: vi.fn(),
+// Mock the React Query hooks
+vi.mock('@/features/lesson-player/hooks/useLesson', () => ({
+  useUnits: vi.fn(),
 }));
 
 // Mock next/link
@@ -17,13 +17,12 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-import { useLearningStore } from '@/lib/presentations/stores/learning-store';
+import { useUnits } from '@/features/lesson-player/hooks/useLesson';
 
 // Import dynamically to ensure mock is set up
 import LearnPage from '@/app/(app)/learn/page';
 
-const mockFetchUnits = vi.fn();
-const mockClearError = vi.fn();
+const mockRefetch = vi.fn();
 
 const mockUnits = [
   {
@@ -52,36 +51,34 @@ const mockUnits = [
   },
 ];
 
-function setupStore(overrides = {}) {
-  (useLearningStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-    units: [],
+function setupHook(overrides = {}) {
+  (useUnits as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    data: [],
     isLoading: false,
     error: null,
-    fetchUnits: mockFetchUnits,
-    clearError: mockClearError,
+    refetch: mockRefetch,
     ...overrides,
   });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  setupStore();
+  setupHook();
 });
 
 describe('LearnPage', () => {
   it('renders loading state while fetching', () => {
-    setupStore({ isLoading: true, units: [] });
+    setupHook({ isLoading: true, data: [] });
 
     render(<LearnPage />);
 
     expect(screen.getByText('Belajar')).toBeInTheDocument();
-    // Should have skeleton loading elements
     const skeletons = document.querySelectorAll('.animate-pulse');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 
   it('renders unit cards after fetch', () => {
-    setupStore({ units: mockUnits, isLoading: false });
+    setupHook({ data: mockUnits, isLoading: false });
 
     render(<LearnPage />);
 
@@ -90,28 +87,24 @@ describe('LearnPage', () => {
     expect(screen.getByText('CSS Styling')).toBeInTheDocument();
     expect(screen.getByText('JavaScript')).toBeInTheDocument();
 
-    // Check descriptions
     expect(screen.getByText('Belajar dasar HTML')).toBeInTheDocument();
     expect(screen.getByText('Belajar CSS')).toBeInTheDocument();
 
-    // Check lesson counts
     expect(screen.getByText('2 Pelajaran')).toBeInTheDocument();
     expect(screen.getByText('1 Pelajaran')).toBeInTheDocument();
 
-    // Check links
     const links = screen.getAllByRole('link');
     expect(links[0]).toHaveAttribute('href', '/learn/unit-1');
     expect(links[1]).toHaveAttribute('href', '/learn/unit-2');
     expect(links[2]).toHaveAttribute('href', '/learn/unit-3');
 
-    // Check emojis
     expect(screen.getByText('🌐')).toBeInTheDocument(); // HTML
     expect(screen.getByText('🎨')).toBeInTheDocument(); // CSS
     expect(screen.getByText('⚡')).toBeInTheDocument(); // JavaScript
   });
 
   it('shows empty state when no units', () => {
-    setupStore({ units: [], isLoading: false });
+    setupHook({ data: [], isLoading: false });
 
     render(<LearnPage />);
 
@@ -122,7 +115,7 @@ describe('LearnPage', () => {
 
   it('shows error state with retry button', async () => {
     const user = userEvent.setup();
-    setupStore({ error: 'Gagal memuat unit', isLoading: false });
+    setupHook({ error: new Error('Gagal memuat unit'), isLoading: false });
 
     render(<LearnPage />);
 
@@ -133,14 +126,13 @@ describe('LearnPage', () => {
     expect(retryButton).toBeInTheDocument();
 
     await user.click(retryButton);
-    expect(mockClearError).toHaveBeenCalled();
-    expect(mockFetchUnits).toHaveBeenCalled();
+    expect(mockRefetch).toHaveBeenCalled();
   });
 
-  it('calls fetchUnits on mount', () => {
-    setupStore();
+  it('calls useUnits on mount', () => {
+    setupHook();
     render(<LearnPage />);
 
-    expect(mockFetchUnits).toHaveBeenCalledTimes(1);
+    expect(useUnits).toHaveBeenCalledTimes(1);
   });
 });

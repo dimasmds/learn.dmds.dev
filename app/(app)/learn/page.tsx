@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useLearningStore } from '@/lib/presentations/stores/learning-store';
+import { useUnits } from '@/features/lesson-player/hooks/useLesson';
 import { Button } from '@/components/ui/button';
 
 function getUnitEmoji(title: string, order: number): string {
@@ -16,16 +15,11 @@ function getUnitEmoji(title: string, order: number): string {
 }
 
 export default function LearnPage() {
-  const { units, isLoading, error, fetchUnits, clearError } = useLearningStore();
+  const { data: units = [], isLoading, error, refetch } = useUnits();
 
-  useEffect(() => {
-    fetchUnits();
-  }, [fetchUnits]);
-
-  const handleRetry = useCallback(() => {
-    clearError();
-    fetchUnits();
-  }, [clearError, fetchUnits]);
+  const handleRetry = () => {
+    refetch();
+  };
 
   // Loading state
   if (isLoading && units.length === 0) {
@@ -59,7 +53,7 @@ export default function LearnPage() {
         <h1 className="text-3xl font-bold text-foreground">Belajar</h1>
         <div className="mt-8 rounded-[var(--radius-common)] border-2 border-[var(--color-border)] bg-secondary-background shadow-[var(--shadow-x)_var(--shadow-y)_var(--shadow-blur)_var(--shadow-spread)_var(--color-shadow)] p-6 text-center">
           <p className="text-lg font-medium mb-2">Terjadi Kesalahan</p>
-          <p className="text-sm text-foreground/60 mb-4">{error}</p>
+          <p className="text-sm text-foreground/60 mb-4">{error.message}</p>
           <Button onClick={handleRetry} variant="default" size="md">
             Coba Lagi
           </Button>

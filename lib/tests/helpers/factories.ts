@@ -4,6 +4,7 @@ import type { AuthRepositoryInterface } from '@/lib/domains/auth/repositories/Au
 import type { PasswordServiceInterface, JwtServiceInterface } from '@/lib/domains/auth/services/AuthServiceInterface';
 import type { LearningRepositoryInterface } from '@/lib/domains/learning/repositories/LearningRepositoryInterface';
 import type { ProgressRepositoryInterface } from '@/lib/domains/progress/repositories/ProgressRepositoryInterface';
+import type { GamificationRepositoryInterface } from '@/lib/domains/gamification/repositories/GamificationRepositoryInterface';
 import type { LearnDmdsUseCaseDependencies } from '@/lib/applications/usecases/base/dependencies';
 
 export function createMockAuthRepository(
@@ -74,6 +75,25 @@ export function createMockProgressRepository(
   };
 }
 
+export function createMockGamificationRepository(
+  overrides: Partial<GamificationRepositoryInterface> = {},
+): GamificationRepositoryInterface {
+  return {
+    getAllBadges: vi.fn().mockResolvedValue([]),
+    getBadgeById: vi.fn().mockResolvedValue(null),
+    getBadgesByCategory: vi.fn().mockResolvedValue([]),
+    getUserBadges: vi.fn().mockResolvedValue([]),
+    awardBadge: vi.fn(),
+    hasBadge: vi.fn().mockResolvedValue(false),
+    getTotalXP: vi.fn().mockResolvedValue(0),
+    getXPTransactions: vi.fn().mockResolvedValue([]),
+    addXPTransaction: vi.fn(),
+    getStreak: vi.fn().mockResolvedValue(null),
+    upsertStreak: vi.fn(),
+    ...overrides,
+  };
+}
+
 /**
  * DRY: Create fully mocked LearnDmdsUseCaseDependencies.
  * Each use case test only needs to override what it uses.
@@ -84,6 +104,7 @@ export function createMockUseCaseDependencies(options: {
   jwtService?: JwtServiceInterface;
   learningRepository?: LearningRepositoryInterface;
   progressRepository?: ProgressRepositoryInterface;
+  gamificationRepository?: GamificationRepositoryInterface;
 } = {}): LearnDmdsUseCaseDependencies {
   return {
     logger: {
@@ -100,5 +121,6 @@ export function createMockUseCaseDependencies(options: {
     jwtService: options.jwtService ?? createMockJwtService(),
     learningRepository: options.learningRepository ?? createMockLearningRepository(),
     progressRepository: options.progressRepository ?? createMockProgressRepository(),
+    gamificationRepository: options.gamificationRepository ?? createMockGamificationRepository(),
   };
 }

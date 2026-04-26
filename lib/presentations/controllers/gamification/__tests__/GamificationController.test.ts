@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GamificationController } from '../GamificationController';
 
@@ -19,16 +19,12 @@ describe('GamificationController', () => {
 
 describeIntegration('GamificationController (integration)', () => {
   it('should return stats when userId is provided', async () => {
+    // Use a valid UUID format (user doesn't need to exist — queries use COALESCE/return empty)
+    const userId = '00000000-0000-0000-0000-000000000001';
     const request = new NextRequest(
-      new URL('http://localhost/api/gamification/stats?userId=user-1'),
+      new URL(`http://localhost/api/gamification/stats?userId=${userId}`),
     );
     const response = await GamificationController.getStats(request);
-
-    // Log the error body for debugging if not 200
-    if (response.status !== 200) {
-      const body = await response.json();
-      console.log('getStats error response:', JSON.stringify(body));
-    }
 
     expect(response.status).toBe(200);
     const body = await response.json();

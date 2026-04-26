@@ -14,13 +14,13 @@ interface StepRendererProps {
   disabled?: boolean;
 }
 
-// Lazy-load heavy components that will be built later
-const ReorderStep = dynamic(() => import('./ReorderStep').then((m) => ({ default: m.ReorderStep })).catch(() => null), { ssr: false });
-const SpotBugStep = dynamic(() => import('./SpotBugStep').then((m) => ({ default: m.SpotBugStep })).catch(() => null), { ssr: false });
-const LiveCodeStep = dynamic(() => import('./LiveCodeStep').then((m) => ({ default: m.LiveCodeStep })).catch(() => null), { ssr: false });
-const LivePreviewStep = dynamic(() => import('./LivePreviewStep').then((m) => ({ default: m.LivePreviewStep })).catch(() => null), { ssr: false });
-const OutputPredictionStep = dynamic(() => import('./OutputPredictionStep').then((m) => ({ default: m.OutputPredictionStep })).catch(() => null), { ssr: false });
-const MatchingStep = dynamic(() => import('./MatchingStep').then((m) => ({ default: m.MatchingStep })).catch(() => null), { ssr: false });
+// Lazy-load heavy components (DnD, sandbox, iframe)
+const ReorderStep = dynamic(() => import('./ReorderStep').then((m) => ({ default: m.ReorderStep })), { ssr: false });
+const SpotBugStep = dynamic(() => import('./SpotBugStep').then((m) => ({ default: m.SpotBugStep })), { ssr: false });
+const LiveCodeStep = dynamic(() => import('./LiveCodeStep').then((m) => ({ default: m.LiveCodeStep })), { ssr: false });
+const LivePreviewStep = dynamic(() => import('./LivePreviewStep').then((m) => ({ default: m.LivePreviewStep })), { ssr: false });
+const OutputPredictionStep = dynamic(() => import('./OutputPredictionStep').then((m) => ({ default: m.OutputPredictionStep })), { ssr: false });
+const MatchingStep = dynamic(() => import('./MatchingStep').then((m) => ({ default: m.MatchingStep })), { ssr: false });
 
 function ComingSoon({ type }: { type: string }) {
   return (

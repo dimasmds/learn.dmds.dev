@@ -15,11 +15,18 @@ import { GetLessonDetailUseCase } from '../applications/usecases/learning/GetLes
 import { GetUserProgressUseCase } from '../applications/usecases/progress/GetUserProgressUseCase';
 import { UpdateProgressUseCase } from '../applications/usecases/progress/UpdateProgressUseCase';
 
+import { AwardXPUseCase } from '../applications/usecases/gamification/AwardXP';
+import { GetBadgesUseCase } from '../applications/usecases/gamification/GetBadges';
+import { GetUserStatsUseCase } from '../applications/usecases/gamification/GetUserStats';
+import { UpdateStreakUseCase } from '../applications/usecases/gamification/UpdateStreak';
+import { CheckBadgeCriteriaUseCase } from '../applications/usecases/gamification/CheckBadgeCriteria';
+
 import { JwtService } from './auth/JwtService';
 import { BcryptPasswordService } from './auth/BcryptPasswordService';
 import { PostgresAuthRepository } from './auth/PostgresAuthRepository';
 import { PostgresLearningRepository } from './learning/PostgresLearningRepository';
 import { PostgresProgressRepository } from './progress/PostgresProgressRepository';
+import { PostgresGamificationRepository } from './gamification/PostgresGamificationRepository';
 import { serverlessDeps } from './serverless-deps';
 
 const container = createContainer();
@@ -51,6 +58,7 @@ const useCaseDependencies: ParameterOption = {
     { name: 'jwtService', internal: 'JwtService' },
     { name: 'learningRepository', internal: 'LearningRepository' },
     { name: 'progressRepository', internal: 'ProgressRepository' },
+    { name: 'gamificationRepository', internal: 'GamificationRepository' },
   ],
 };
 
@@ -59,6 +67,7 @@ container.register([
   { key: 'AuthRepository', Class: PostgresAuthRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
   { key: 'LearningRepository', Class: PostgresLearningRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
   { key: 'ProgressRepository', Class: PostgresProgressRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
+  { key: 'GamificationRepository', Class: PostgresGamificationRepository, parameter: { injectType: 'parameter', dependencies: [{ concrete: getPool() }] } },
 ]);
 
 container.register([
@@ -78,6 +87,11 @@ container.register([
   { key: 'GetLessonDetailUseCase', Class: GetLessonDetailUseCase, parameter: useCaseDependencies },
   { key: 'GetUserProgressUseCase', Class: GetUserProgressUseCase, parameter: useCaseDependencies },
   { key: 'UpdateProgressUseCase', Class: UpdateProgressUseCase, parameter: useCaseDependencies },
+  { key: 'AwardXPUseCase', Class: AwardXPUseCase, parameter: useCaseDependencies },
+  { key: 'GetBadgesUseCase', Class: GetBadgesUseCase, parameter: useCaseDependencies },
+  { key: 'GetUserStatsUseCase', Class: GetUserStatsUseCase, parameter: useCaseDependencies },
+  { key: 'UpdateStreakUseCase', Class: UpdateStreakUseCase, parameter: useCaseDependencies },
+  { key: 'CheckBadgeCriteriaUseCase', Class: CheckBadgeCriteriaUseCase, parameter: useCaseDependencies },
 ]);
 
 export { container, getPool };

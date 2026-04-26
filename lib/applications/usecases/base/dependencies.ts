@@ -4,6 +4,7 @@ import type { AuthRepositoryInterface } from '@/lib/domains/auth/repositories/Au
 import type { PasswordServiceInterface, JwtServiceInterface } from '@/lib/domains/auth/services/AuthServiceInterface';
 import type { LearningRepositoryInterface } from '@/lib/domains/learning/repositories/LearningRepositoryInterface';
 import type { ProgressRepositoryInterface } from '@/lib/domains/progress/repositories/ProgressRepositoryInterface';
+import type { GamificationRepositoryInterface } from '@/lib/domains/gamification/repositories/GamificationRepositoryInterface';
 
 export interface LearnDmdsUseCaseDependencies extends UseCaseDependencies {
   authRepository: AuthRepositoryInterface;
@@ -11,4 +12,5 @@ export interface LearnDmdsUseCaseDependencies extends UseCaseDependencies {
   jwtService: JwtServiceInterface;
   learningRepository: LearningRepositoryInterface;
   progressRepository: ProgressRepositoryInterface;
+  gamificationRepository: GamificationRepositoryInterface;
 }

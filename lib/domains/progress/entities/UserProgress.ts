@@ -58,6 +58,10 @@ export class UserProgress extends Entity<string> {
     );
   }
 
+  static reconstitute(id: string, props: UserProgressProps): UserProgress {
+    return new UserProgress(props, id);
+  }
+
   markCompleted(): void {
     this._props = {
       ...this._props,

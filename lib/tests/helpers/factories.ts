@@ -2,6 +2,8 @@ import { vi } from 'vitest';
 
 import type { AuthRepositoryInterface } from '@/lib/domains/auth/repositories/AuthRepositoryInterface';
 import type { PasswordServiceInterface, JwtServiceInterface } from '@/lib/domains/auth/services/AuthServiceInterface';
+import type { LearningRepositoryInterface } from '@/lib/domains/learning/repositories/LearningRepositoryInterface';
+import type { ProgressRepositoryInterface } from '@/lib/domains/progress/repositories/ProgressRepositoryInterface';
 import type { LearnDmdsUseCaseDependencies } from '@/lib/applications/usecases/base/dependencies';
 
 export function createMockAuthRepository(
@@ -46,6 +48,32 @@ export function createMockJwtService(
   };
 }
 
+export function createMockLearningRepository(
+  overrides: Partial<LearningRepositoryInterface> = {},
+): LearningRepositoryInterface {
+  return {
+    getUnits: vi.fn().mockResolvedValue([]),
+    getUnitById: vi.fn().mockResolvedValue(null),
+    getLessonsByUnitId: vi.fn().mockResolvedValue([]),
+    getLessonById: vi.fn().mockResolvedValue(null),
+    getStepsByLessonId: vi.fn().mockResolvedValue([]),
+    getStepById: vi.fn().mockResolvedValue(null),
+    ...overrides,
+  };
+}
+
+export function createMockProgressRepository(
+  overrides: Partial<ProgressRepositoryInterface> = {},
+): ProgressRepositoryInterface {
+  return {
+    getUserProgress: vi.fn().mockResolvedValue([]),
+    getProgressByUserAndLesson: vi.fn().mockResolvedValue([]),
+    getProgressByUserAndStep: vi.fn().mockResolvedValue(null),
+    upsertProgress: vi.fn(),
+    ...overrides,
+  };
+}
+
 /**
  * DRY: Create fully mocked LearnDmdsUseCaseDependencies.
  * Each use case test only needs to override what it uses.
@@ -54,6 +82,8 @@ export function createMockUseCaseDependencies(options: {
   authRepository?: AuthRepositoryInterface;
   passwordService?: PasswordServiceInterface;
   jwtService?: JwtServiceInterface;
+  learningRepository?: LearningRepositoryInterface;
+  progressRepository?: ProgressRepositoryInterface;
 } = {}): LearnDmdsUseCaseDependencies {
   return {
     logger: {
@@ -68,5 +98,7 @@ export function createMockUseCaseDependencies(options: {
     authRepository: options.authRepository ?? createMockAuthRepository(),
     passwordService: options.passwordService ?? createMockPasswordService(),
     jwtService: options.jwtService ?? createMockJwtService(),
+    learningRepository: options.learningRepository ?? createMockLearningRepository(),
+    progressRepository: options.progressRepository ?? createMockProgressRepository(),
   };
 }
